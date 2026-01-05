@@ -1,0 +1,363 @@
+%% =====================================================
+%% formato.sty - Custom format package for academic documents
+%% Enhanced APA version
+%% =====================================================
+\ProvidesPackage{formato}
+
+%% =====================================================
+%% BASIC PACKAGES
+%% =====================================================
+\RequirePackage{graphicx}          % Support for image insertion
+\RequirePackage{etoolbox}          % Programming tools for LaTeX
+\RequirePackage{titlesec}          % Section title customization
+\RequirePackage{setspace}          % Line spacing control
+\RequirePackage{titletoc}          % Table of contents customization
+\RequirePackage{fancyhdr}          % Advanced header and footer control
+
+%% =====================================================
+%% FORMAT AND TYPOGRAPHY PACKAGES
+%% =====================================================
+\RequirePackage[utf8]{inputenc}    % UTF-8 encoding for special characters
+\RequirePackage[T1]{fontenc}       % Font encoding for accented characters
+\RequirePackage[spanish]{babel}    % Translation of automatic elements
+\RequirePackage{lmodern}           % Enhanced Computer Modern (Latin Modern)
+\RequirePackage{geometry}          % Page size configuration
+\geometry{
+  a4paper,                         % A4 size
+  margin=2.54cm                    % APA margins (1 inch = 2.54cm)
+}
+
+\RequirePackage{lscape}            % For landscape orientation pages
+\RequirePackage{array}             % Table improvements
+\RequirePackage{multirow}          % Merge table rows
+\RequirePackage{multicol}          % Multiple columns
+\RequirePackage{booktabs}          % Professional table style
+\RequirePackage{float}             % Control over figure/table position
+\RequirePackage{courier}           % Courier monospace font for code
+\RequirePackage{enumitem}          % Advanced list control
+
+%% =====================================================
+%% MATHEMATICS PACKAGES
+%% =====================================================
+\RequirePackage{amsmath}           % Advanced mathematical environments
+\RequirePackage{amssymb}           % Additional mathematical symbols
+\RequirePackage{amsfonts}          % Additional mathematical fonts
+\RequirePackage{amsthm}            % Theorem and proof environments
+\RequirePackage{mathtools}         % Extensions for amsmath
+
+%% =====================================================
+%% GRAPHICS AND COLOR PACKAGES
+%% =====================================================
+\RequirePackage{xcolor}            % Color handling
+\RequirePackage[table]{xcolor}     % Colors in tables
+\RequirePackage{wrapfig}           % Text around figures
+\RequirePackage{tikz}              % Vector drawings and graphics
+\RequirePackage{pgfplots}          % Statistical graphics
+\RequirePackage{caption}           % Caption customization
+\RequirePackage{subcaption}        % Subfigure support
+
+%% =====================================================
+%% SOURCE CODE PACKAGES
+%% =====================================================
+\RequirePackage{listings}          % Styled source code display
+\RequirePackage{minted}            % Advanced syntax highlighting
+\RequirePackage{algorithm}         % Algorithm environment
+\RequirePackage{algpseudocode}     % Pseudocode
+
+% Basic configuration for listings
+\lstset{
+  basicstyle=\small\ttfamily,
+  keywordstyle=\bfseries\color{blue},
+  commentstyle=\itshape\color{green!60!black},
+  stringstyle=\color{red},
+  numbers=left,
+  numberstyle=\tiny,
+  frame=single,
+  breaklines=true
+}
+
+%% =====================================================
+%% HYPERLINKS AND URLs
+%% =====================================================
+\RequirePackage[hyphens]{url}      % URLs with hyphens
+\RequirePackage[hidelinks]{hyperref} % Hyperlinks without color or frame
+
+%% =====================================================
+%% HEADER AND FOOTER PACKAGES
+%% =====================================================
+\pagestyle{fancy}
+\fancyhf{} % Clear all
+
+% Header images
+\fancyhead[L]{\includegraphics[height=0.8cm]{imagenes/escudo.png}\hspace{0.5em}\@subject}
+\fancyhead[R]{\@semester\hspace{0.5em}\includegraphics[height=0.8cm]{imagenes/logo.png}}
+
+% Footer
+\fancyfoot[L]{\@documenttitle}
+\fancyfoot[R]{\thepage}
+
+% Decorative lines
+\renewcommand{\headrulewidth}{1pt}
+\renewcommand{\footrulewidth}{1pt}
+
+%% =====================================================
+%% BIBLIOGRAPHY IN APA STYLE - ENHANCED CONFIGURATION
+%% =====================================================
+\RequirePackage[
+    backend=biber,                 % Use biber instead of bibtex (more modern)
+    style=apa,                     % Official APA style
+    natbib=true,
+    sorting=nyt,                   % Sort by name, year, title
+    maxcitenames=2,                % Maximum 2 names in citations
+    maxbibnames=99,                % All names in bibliography
+    uniquename=false,              % Don't use additional initials
+    uniquelist=false,              % Don't expand author lists
+    hyperref=true,                 % Active links
+    backref=false,                 % No back references
+    isbn=false,                    % Don't show ISBN
+    url=true,                      % Show URLs
+    doi=true,                      % Show DOI
+    eprint=false                   % Don't show eprint
+]{biblatex}
+
+% Specific APA configuration for bibliography
+\DeclareLanguageMapping{spanish}{spanish-apa}
+
+% HANGING INDENT of 1.27 cm according to APA
+\setlength\bibhang{1.27cm}
+
+% Spacing between bibliography entries
+\setlength\bibitemsep{1\baselineskip}
+
+% Paragraph indentation configuration for bibliography
+\setlength{\biblabelsep}{0pt}
+
+% Additional customization to comply with APA
+\renewcommand*{\bibfont}{\normalfont\normalsize}
+
+% Configure URL format for better adjustment
+\setcounter{biburlnumpenalty}{9000}
+\setcounter{biburlucpenalty}{9000}
+\setcounter{biburllcpenalty}{9000}
+
+% Remove "In:" from journal articles (according to APA 7th edition)
+\renewbibmacro{in:}{%
+  \ifboolexpr{%
+    test {\ifentrytype{article}}%
+    or
+    test {\ifentrytype{inproceedings}}%
+  }%
+    {}%
+    {\printtext{\bibstring{in}\intitlepunct}}}
+
+% Date configuration according to APA
+\DefineBibliographyStrings{spanish}{%
+  urlseen = {Consultado el},
+  retrieved = {Recuperado el},
+  from = {de}
+}
+
+\addbibresource{bibliografia.bib}
+
+%% =====================================================
+%% TITLE CONFIGURATION ACCORDING TO APA
+%% =====================================================
+
+% Level 1: Centered, Bold, Title Case
+\titleformat{\section}
+  {\centering\bfseries\normalsize}
+  {}
+  {0em}
+  {}
+
+% Level 2: Left Aligned, Bold, Title Case  
+\titleformat{\subsection}
+  {\raggedright\bfseries\normalsize}
+  {}
+  {0em}
+  {}
+
+% Level 3: Left Aligned, Bold, Italic, Title Case
+\titleformat{\subsubsection}
+  {\raggedright\bfseries\itshape\normalsize}
+  {}
+  {0em}
+  {}
+
+% Level 4: Indented, Bold, Title Case, Period
+\titleformat{\paragraph}[runin]
+  {\raggedright\bfseries\normalsize}
+  {}
+  {0em}
+  {}[.]
+
+% Level 5: Indented, Bold, Italic, Title Case, Period
+\titleformat{\subparagraph}[runin]
+  {\raggedright\bfseries\itshape\normalsize}
+  {}
+  {0em}
+  {}[.]
+
+% Title spacing according to APA
+\titlespacing{\section}{0pt}{1.5em}{0.5em}
+\titlespacing{\subsection}{0pt}{1em}{0.5em}
+\titlespacing{\subsubsection}{0pt}{1em}{0.5em}
+\titlespacing{\paragraph}{\parindent}{1em}{1em}
+\titlespacing{\subparagraph}{\parindent}{1em}{1em}
+
+%% =====================================================
+%% DATE IN SPANISH FORMAT
+%% =====================================================
+\newcommand{\monthname}{\ifcase\month\or
+  Enero\or Febrero\or Marzo\or Abril\or Mayo\or Junio\or
+  Julio\or Agosto\or Septiembre\or Octubre\or Noviembre\or Diciembre\fi}
+
+%% =====================================================
+%% CUSTOM COMMANDS FOR COVER PAGE AND AUTHOR MANAGEMENT
+%% =====================================================
+\newcommand{\documenttype}[1]{\gdef\@documenttype{#1}}
+\newcommand{\documenttitle}[1]{\gdef\@documenttitle{#1}}
+\newcommand{\advisor}[1]{\gdef\@advisor{#1}}
+\newcommand{\semester}[1]{\gdef\@semester{#1}}
+\newcommand{\subject}[1]{\gdef\@subject{#1}}
+
+% List to store multiple authors
+\newtoggle{firstauthor}
+\toggletrue{firstauthor}
+
+% Counter for number of authors
+\newcounter{authorcount}
+\setcounter{authorcount}{0}
+
+% Initialize empty author list
+\def\authorlist{}
+
+% Command to add an author to the list
+\newcommand{\addauthor}[1]{%
+  \stepcounter{authorcount}%
+  \iftoggle{firstauthor}{%
+    \gdef\authorlist{#1}%
+    \togglefalse{firstauthor}%
+  }{%
+    \g@addto@macro\authorlist{\par #1}%
+  }%
+}
+
+%% =====================================================
+%% COMMANDS FOR PAGE NUMBERING CONFIGURATION
+%% =====================================================
+% Switch to Roman numbering for preliminary pages
+\newcommand{\startpreliminary}{%
+  \pagenumbering{roman}
+  \setcounter{page}{1}
+}
+
+% Switch to Arabic numbering for main content
+\newcommand{\startmain}{%
+  \clearpage
+  \pagenumbering{arabic}
+  \setcounter{page}{4}
+}
+
+%% =====================================================
+%% APA PARAGRAPH AND SPACING CONFIGURATION
+%% =====================================================
+% APA paragraph indentation: 1.27 cm (0.5 inches)
+\setlength{\parindent}{1.27cm}
+
+% No additional space between paragraphs (APA uses only indentation)
+\setlength{\parskip}{0pt}
+
+% Double spacing for entire document
+\doublespacing
+
+%% =====================================================
+%% ADDITIONAL APA COMMANDS
+%% =====================================================
+% List configuration according to APA
+\setlist[enumerate,1]{label=\arabic*.,leftmargin=\parindent,itemsep=0pt,parsep=0pt}
+\setlist[itemize,1]{leftmargin=\parindent,itemsep=0pt,parsep=0pt}
+
+% Environment for long quotes (more than 40 words) with 1.27 cm indentation
+\newenvironment{blockquote}{%
+  \begin{quote}
+  \singlespacing
+  \setlength{\leftskip}{1.27cm}
+  \setlength{\parindent}{0pt}
+}{%
+  \end{quote}
+}
+
+% Enhanced command to print bibliography
+\newcommand{\printreferences}[1][Referencias]{%  \clearpage
+  \nocite{*}
+  \clearpage
+  \phantomsection
+  \addcontentsline{toc}{section}{#1}
+  \printbibliography[title=#1]
+}
+
+% Commands for citations with specific page
+\newcommand{\citepage}[2]{\parencite[p.~#2]{#1}}
+\newcommand{\citepages}[2]{\parencite[pp.~#2]{#1}}
+
+% Commands for narrative citations
+\newcommand{\textualcite}[1]{\textcite{#1}}
+\newcommand{\textualcitepage}[2]{\textcite[p.~#2]{#1}}
+
+%% =====================================================
+%% ENHANCED ACADEMIC FORMATTING COMMANDS
+%% =====================================================
+
+% Abstract environment with proper APA formatting
+\newenvironment{abstractenv}{%
+  \clearpage
+  \phantomsection
+  \addcontentsline{toc}{section}{Resumen}
+  \begin{center}
+    \bfseries\normalsize Resumen
+  \end{center}
+  \par\vspace{1em}
+  \singlespacing
+}{%
+  \doublespacing
+}
+
+% Keywords command
+\newcommand{\keywords}[1]{%
+  \par\vspace{1em}
+  \noindent\textbf{Palabras clave:} #1
+}
+
+% Appendix command
+\newcommand{\startappendix}{%
+  \clearpage
+  \appendix
+  \phantomsection
+  \addcontentsline{toc}{section}{Apéndices}
+}
+
+% Figure with APA caption
+\newcommand{\apafigure}[4][htbp]{%
+  \begin{figure}[#1]
+    \centering
+    #2
+    \caption{#3}
+    \label{#4}
+  \end{figure}
+}
+
+% Table with APA caption
+\newcommand{\apatable}[4][htbp]{%
+  \begin{table}[#1]
+    \centering
+    \caption{#3}
+    \label{#4}
+    #2
+  \end{table}
+}
+
+%% =====================================================
+%% END OF PACKAGE
+%% =====================================================
+\endinput

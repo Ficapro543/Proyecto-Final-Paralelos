@@ -1,0 +1,716 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Routers + Clausura Transitiva (Warshall lógico) - Demo</title>
+  <style>
+    body { margin:0; font-family: system-ui, Arial, sans-serif; background:#101018; color:#eaeaf2; }
+    .top { display:flex; gap:10px; padding:12px; align-items:center; flex-wrap:wrap; }
+    button, select, textarea, input { border:0; border-radius:10px; background:#2a2a3a; color:#fff; }
+    button, select, input { padding:8px 12px; }
+    button { cursor:pointer; }
+    button:hover { filter:brightness(1.1); }
+    select { cursor:pointer; }
+    textarea { width:100%; min-height:160px; padding:10px; resize:vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; line-height:1.3; }
+    .chip { padding:6px 10px; border-radius:999px; background:#1d1d2a; font-size:13px; }
+    .wrap { display:grid; grid-template-columns: 1fr 520px; gap:12px; padding:12px; }
+    canvas { width:100%; height: calc(100vh - 118px); background:#0f0f16; border-radius:16px; }
+    .panel { display:grid; grid-template-rows:auto auto 1fr; gap:12px; height: calc(100vh - 118px); }
+    .card { background:#0f0f16; border-radius:16px; padding:12px; }
+    pre { margin:0; padding:12px; background:#0f0f16; border-radius:16px; overflow:auto; height:100%; }
+    .legend { font-size:13px; opacity:.92; }
+    .hint { font-size:12px; opacity:.75; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .row > * { flex: 0 0 auto; }
+    .muted { opacity:.85; font-size:12px; }
+    .err { color:#ff6b6b; white-space:pre-wrap; }
+    .ok { color:#7CFF9B; white-space:pre-wrap; }
+    .kbox { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size:12px; }
+    @media (max-width: 1200px){
+      .wrap { grid-template-columns: 1fr; }
+      canvas { height: 420px; }
+      .panel { height: auto; }
+      pre { height: 420px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top">
+    <select id="selPreset"></select>
+    <button id="btnNext">Siguiente grafo</button>
+
+    <button id="btnView">Vista: Directos + Alcanzables</button>
+    <button id="btnDir">Modo: DIRIGIDO</button>
+    <button id="btnReload">Recargar</button>
+
+    <span class="chip" id="chipN"></span>
+    <span class="chip" id="chipMode"></span>
+
+    <span class="legend">
+      <span style="color:#3399ff;">■</span> Directos
+      &nbsp;&nbsp;
+      <span style="color:#33ff77;">■</span> Alcanzables (por clausura)
+      &nbsp;&nbsp;
+      <span style="color:#ffd34d;">■</span> Nuevos en este paso (simulación)
+    </span>
+
+    <span class="hint">
+      Teclas: <b>Espacio</b>=vista, <b>U</b>=dir/no-dir, <b>R</b>=recargar, <b>G</b>=siguiente grafo
+    </span>
+  </div>
+
+  <div class="wrap">
+    <canvas id="cv"></canvas>
+
+    <div class="panel">
+      <div class="card">
+        <div class="row" style="justify-content:space-between;">
+          <div>
+            <div style="font-weight:700;">Entrada: tu matriz de adyacencia (0/1)</div>
+            <div class="muted">
+              Formato: N filas, N columnas. Separador: espacios / comas / punto y coma.
+              <br/>Ejemplo (N=5): pega la matriz y pulsa <b>Cargar matriz</b>.
+            </div>
+          </div>
+          <div class="row">
+            <label class="muted" style="display:flex; gap:6px; align-items:center; user-select:none;">
+              <input id="chkReflexiva" type="checkbox" />
+              Forzar A[i][i]=1
+            </label>
+            <button id="btnExport">Exportar matriz actual</button>
+          </div>
+        </div>
+
+        <textarea id="taMatrix" spellcheck="false"></textarea>
+
+        <div class="row" style="margin-top:8px;">
+          <button id="btnLoadMatrix">Cargar matriz</button>
+          <button id="btnMakeZero">Crear matriz 6×6 vacía</button>
+          <input id="inN" type="number" min="2" max="50" value="6" />
+          <span class="muted">(cambia N y luego “Crear matriz…”) </span>
+        </div>
+
+        <div id="msg" class="muted" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700;">Simulación paso a paso (Warshall lógico)</div>
+        <div class="muted" style="margin-top:4px;">
+          En el paso <span class="kbox">k</span>, permitimos usar <b>Rk</b> como intermediario:
+          <div class="kbox" style="margin-top:6px;">
+            A[i][j] ← A[i][j] OR (A[i][k] AND A[k][j])
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <button id="btnSimStart">Iniciar simulación</button>
+          <button id="btnSimStep" disabled>Paso (k)</button>
+          <button id="btnSimRun" disabled>Auto ▶</button>
+          <button id="btnSimPause" disabled>Pausar ⏸</button>
+          <button id="btnSimReset" disabled>Reiniciar</button>
+        </div>
+
+        <div class="row" style="margin-top:8px;">
+          <span class="chip" id="chipK">k: -</span>
+          <span class="chip" id="chipInfo">estado: normal</span>
+        </div>
+      </div>
+
+      <pre id="out"></pre>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ---------------------------
+  // Estado global
+  // ---------------------------
+  let N = 5;
+  let showClosure = true;
+  let directed = true;
+
+  // Matrices
+  let A_direct = [];
+  let A_closure = [];   // clausura completa (modo normal)
+  let A_work = [];      // matriz actual en simulación (paso a paso)
+  let lastNew = new Set(); // "i,j" nuevos en el último paso
+
+  // Simulación
+  let simActive = false;
+  let simK = 0;
+  let simTimer = null;
+
+  // Canvas
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+
+  // UI
+  const selPreset = document.getElementById('selPreset');
+  const btnNext = document.getElementById('btnNext');
+  const btnView = document.getElementById('btnView');
+  const btnDir = document.getElementById('btnDir');
+  const btnReload = document.getElementById('btnReload');
+  const chipN = document.getElementById('chipN');
+  const chipMode = document.getElementById('chipMode');
+
+  const taMatrix = document.getElementById('taMatrix');
+  const btnLoadMatrix = document.getElementById('btnLoadMatrix');
+  const btnExport = document.getElementById('btnExport');
+  const chkReflexiva = document.getElementById('chkReflexiva');
+  const msg = document.getElementById('msg');
+  const btnMakeZero = document.getElementById('btnMakeZero');
+  const inN = document.getElementById('inN');
+
+  const btnSimStart = document.getElementById('btnSimStart');
+  const btnSimStep = document.getElementById('btnSimStep');
+  const btnSimRun = document.getElementById('btnSimRun');
+  const btnSimPause = document.getElementById('btnSimPause');
+  const btnSimReset = document.getElementById('btnSimReset');
+  const chipK = document.getElementById('chipK');
+  const chipInfo = document.getElementById('chipInfo');
+
+  const out = document.getElementById('out');
+
+  // Visual
+  const NODE_R = 18;
+  let pos = [];
+
+  // ---------------------------
+  // Utilidades
+  // ---------------------------
+  const idx = (i, j) => i * N + j;
+
+  function stopAuto() {
+    if (simTimer) clearInterval(simTimer);
+    simTimer = null;
+  }
+
+  function setMsgOk(s) { msg.className = "ok"; msg.textContent = s; }
+  function setMsgErr(s){ msg.className = "err"; msg.textContent = s; }
+
+  function printMatrix(A, title) {
+    let s = `=== ${title} (N=${N}) ===\n`;
+    s += "     " + [...Array(N).keys()].map(j => String(j).padStart(2," ")).join(" ") + "\n";
+    s += "     " + [...Array(N).keys()].map(_ => "---").join("") + "\n";
+    for (let i = 0; i < N; i++) {
+      s += String(i).padStart(2," ") + " | ";
+      for (let j = 0; j < N; j++) s += String(A[idx(i,j)]).padStart(2," ") + " ";
+      s += "\n";
+    }
+    return s;
+  }
+
+  function edgesFromMatrix(A) {
+    const edges = [];
+    for (let i = 0; i < N; i++) {
+      for (let j = 0; j < N; j++) {
+        if (i === j) continue;
+        if (A[idx(i,j)] === 1) edges.push([i,j]);
+      }
+    }
+    return edges;
+  }
+
+  function matrixToText(A) {
+    let lines = [];
+    for (let i=0;i<N;i++){
+      let row = [];
+      for (let j=0;j<N;j++) row.push(String(A[idx(i,j)]));
+      lines.push(row.join(" "));
+    }
+    return lines.join("\n");
+  }
+
+  function parseMatrixText(text) {
+    const lines = text
+      .split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(l => l.length > 0);
+
+    if (lines.length === 0) throw new Error("La matriz está vacía.");
+
+    const rows = lines.map(l => l.split(/[,\s;]+/).filter(x => x.length>0));
+    const n = rows.length;
+
+    for (let i=0;i<n;i++){
+      if (rows[i].length !== n) {
+        throw new Error(`No es cuadrada: fila ${i} tiene ${rows[i].length} valores pero N=${n}.`);
+      }
+    }
+
+    const A = new Array(n*n).fill(0);
+    for (let i=0;i<n;i++){
+      for (let j=0;j<n;j++){
+        const v = Number(rows[i][j]);
+        if (!Number.isFinite(v)) throw new Error(`Valor inválido en (${i},${j}): "${rows[i][j]}"`);
+        A[i*n + j] = v !== 0 ? 1 : 0;
+      }
+    }
+    return { n, A };
+  }
+
+  function ensureReflexive(A) {
+    if (!chkReflexiva.checked) return;
+    for (let i=0;i<N;i++) A[idx(i,i)] = 1;
+  }
+
+  // ---------------------------
+  // Posiciones en círculo
+  // ---------------------------
+  function computePositionsCircle() {
+    pos = [];
+    const R = 0.38;
+    for (let i = 0; i < N; i++) {
+      const ang = 2*Math.PI*i/N;
+      pos.push({x: 0.5 + R*Math.cos(ang), y: 0.5 + R*Math.sin(ang)});
+    }
+  }
+
+  // ---------------------------
+  // Warshall lógico (clausura completa)
+  // ---------------------------
+  function computeClosureFullFromDirect() {
+    A_closure = A_direct.slice();
+    for (let k=0;k<N;k++){
+      for (let i=0;i<N;i++){
+        const aik = A_closure[idx(i,k)];
+        if (!aik) continue;
+        for (let j=0;j<N;j++){
+          const akj = A_closure[idx(k,j)];
+          A_closure[idx(i,j)] = (A_closure[idx(i,j)] | (aik & akj)) ? 1 : 0;
+        }
+      }
+    }
+  }
+
+  // ---------------------------
+  // Simulación paso a paso (por k)
+  // Paso k: A_new[i][j] = A_old[i][j] OR (A_old[i][k] AND A_old[k][j])
+  // ---------------------------
+  function simStart() {
+    stopAuto();
+    simActive = true;
+    simK = 0;
+    lastNew.clear();
+    A_work = A_direct.slice(); // arranca desde directos
+    ensureReflexive(A_work);
+
+    btnSimStep.disabled = false;
+    btnSimRun.disabled = false;
+    btnSimPause.disabled = true;
+    btnSimReset.disabled = false;
+
+    chipInfo.textContent = "estado: simulando";
+    updateStatusChips();
+    redrawAll();
+  }
+
+  function simReset() {
+    stopAuto();
+    simActive = false;
+    simK = 0;
+    lastNew.clear();
+    A_work = [];
+    btnSimStep.disabled = true;
+    btnSimRun.disabled = true;
+    btnSimPause.disabled = true;
+    btnSimReset.disabled = true;
+
+    chipInfo.textContent = "estado: normal";
+    chipK.textContent = "k: -";
+    // vuelve a clausura completa
+    computeClosureFullFromDirect();
+    redrawAll();
+  }
+
+  function simStepOnce() {
+    if (!simActive) return;
+
+    if (simK >= N) {
+      // ya terminó
+      stopAuto();
+      btnSimStep.disabled = true;
+      btnSimRun.disabled = true;
+      btnSimPause.disabled = true;
+      chipInfo.textContent = "estado: terminado";
+      updateStatusChips();
+      redrawAll();
+      return;
+    }
+
+    lastNew.clear();
+    const before = A_work.slice();
+
+    // usa snapshot "before" para que el paso k sea conceptualmente limpio
+    for (let i=0;i<N;i++){
+      const aik = before[idx(i, simK)];
+      if (!aik) continue;
+      for (let j=0;j<N;j++){
+        const akj = before[idx(simK, j)];
+        const newVal = (before[idx(i,j)] | (aik & akj)) ? 1 : 0;
+        const oldVal = before[idx(i,j)];
+        A_work[idx(i,j)] = newVal;
+
+        // registrar lo "nuevo" en este paso (0->1)
+        if (oldVal === 0 && newVal === 1) {
+          lastNew.add(i + "," + j);
+        }
+      }
+    }
+
+    simK++;
+    updateStatusChips();
+    redrawAll();
+  }
+
+  function simRunAuto() {
+    if (!simActive) return;
+    stopAuto();
+    btnSimPause.disabled = false;
+    btnSimRun.disabled = true;
+    btnSimStep.disabled = true;
+
+    simTimer = setInterval(() => {
+      simStepOnce();
+      if (simK >= N) {
+        stopAuto();
+        btnSimPause.disabled = true;
+        btnSimRun.disabled = true;
+        btnSimStep.disabled = true;
+      }
+    }, 650);
+  }
+
+  function simPause() {
+    stopAuto();
+    btnSimPause.disabled = true;
+    btnSimRun.disabled = false;
+    btnSimStep.disabled = false;
+  }
+
+  function updateStatusChips() {
+    chipN.textContent = `Routers: ${N}`;
+    chipMode.textContent = directed ? "DIRIGIDO" : "NO DIRIGIDO";
+    btnView.textContent = showClosure ? "Vista: Directos + Alcanzables" : "Vista: Solo Directos";
+    btnDir.textContent = directed ? "Modo: DIRIGIDO" : "Modo: NO DIRIGIDO";
+    chipK.textContent = simActive ? `k: ${Math.min(simK, N)} / ${N}` : "k: -";
+  }
+
+  // ---------------------------
+  // Dibujo (Canvas)
+  // ---------------------------
+  function drawArrow(x1,y1,x2,y2, color) {
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.moveTo(x1,y1);
+    ctx.lineTo(x2,y2);
+    ctx.stroke();
+
+    const dx = x2-x1, dy = y2-y1;
+    const L = Math.hypot(dx,dy);
+    if (L < 1e-6) return;
+    const ux = dx/L, uy = dy/L;
+
+    const size = 10;
+    const px = x2, py = y2;
+    const lx = px - size*ux - size*0.6*(-uy);
+    const ly = py - size*uy - size*0.6*(ux);
+    const rx = px - size*ux + size*0.6*(-uy);
+    const ry = py - size*uy + size*0.6*(ux);
+
+    ctx.beginPath();
+    ctx.moveTo(px,py);
+    ctx.lineTo(lx,ly);
+    ctx.lineTo(rx,ry);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawLine(x1,y1,x2,y2, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x1,y1);
+    ctx.lineTo(x2,y2);
+    ctx.stroke();
+  }
+
+  function drawNode(x,y,label) {
+    ctx.fillStyle = "#ff9a33";
+    ctx.beginPath();
+    ctx.arc(x,y,NODE_R,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.fillStyle = "#000";
+    ctx.font = "14px system-ui, Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, x, y);
+  }
+
+  function redrawAll() {
+    updateStatusChips();
+
+    const rect = cv.getBoundingClientRect();
+    const W = rect.width;
+    const H = rect.height;
+
+    ctx.clearRect(0,0,W,H);
+
+    // qué matriz usar para "alcanzables"?
+    const A_reach = simActive ? A_work : A_closure;
+
+    // consola lado derecho
+    const directEdges = edgesFromMatrix(A_direct);
+    const reachEdges = edgesFromMatrix(A_reach);
+    const inferredEdges = reachEdges.filter(([i,j]) => A_direct[idx(i,j)] === 0);
+    const newly = [...lastNew].map(s => s.split(",").map(Number));
+
+    const edgeList = (arr) => arr.map(([u,v]) => `${u}->${v}`).join(", ");
+
+    out.textContent =
+      `=== Estado ===\n` +
+      `Modo: ${directed ? "DIRIGIDO" : "NO DIRIGIDO"} | Vista: ${showClosure ? "Directos+Alcanzables" : "Solo Directos"} | ${simActive ? "SIMULACIÓN" : "NORMAL"}\n` +
+      (simActive ? `Paso actual: k=${Math.min(simK,N)} / ${N}\n` : "") +
+      `\n=== Enlaces directos (${directEdges.length}) ===\n` +
+      (directEdges.length ? edgeList(directEdges) : "(ninguno)") + "\n\n" +
+      `=== Alcanzables actuales (${reachEdges.length}) ===\n` +
+      (reachEdges.length ? edgeList(reachEdges) : "(ninguno)") + "\n\n" +
+      `=== Inferidos (alcanzables pero no directos) (${inferredEdges.length}) ===\n` +
+      (inferredEdges.length ? edgeList(inferredEdges) : "(ninguno)") + "\n\n" +
+      (simActive ? (`=== Nuevos en el último paso (${newly.length}) ===\n` +
+                  (newly.length ? edgeList(newly) : "(ninguno)") + "\n\n") : "") +
+      printMatrix(A_direct, "Matriz de ENTRADA (directos)") + "\n" +
+      printMatrix(A_reach, simActive ? "Matriz actual (simulación)" : "Matriz de SALIDA (clausura completa)");
+
+    // coords -> pixeles
+    const toPx = (p) => ({ x: p.x*W, y: p.y*H });
+
+    // Enlaces
+    for (let i=0;i<N;i++){
+      for (let j=0;j<N;j++){
+        if (i===j) continue;
+        if (!directed && j < i) continue;
+
+        const direct_ij = A_direct[idx(i,j)];
+        const reach_ij  = A_reach[idx(i,j)];
+        const inferred  = (reach_ij === 1 && direct_ij === 0);
+        const isNew     = lastNew.has(i + "," + j);
+
+        const a = toPx(pos[i]);
+        const b = toPx(pos[j]);
+
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const L = Math.hypot(dx,dy);
+        if (L < 1e-6) continue;
+        const ux = dx/L, uy = dy/L;
+
+        const x1 = a.x + ux*NODE_R, y1 = a.y + uy*NODE_R;
+        const x2 = b.x - ux*NODE_R, y2 = b.y - uy*NODE_R;
+
+        // directos
+        if (direct_ij) {
+          if (directed) drawArrow(x1,y1,x2,y2,"#3399ff");
+          else drawLine(x1,y1,x2,y2,"#3399ff");
+        }
+
+        // inferidos (si showClosure)
+        if (showClosure && inferred) {
+          const color = isNew ? "#ffd34d" : "#33ff77";
+          if (directed) drawArrow(x1,y1,x2,y2,color);
+          else drawLine(x1,y1,x2,y2,color);
+        }
+      }
+    }
+
+    // Nodos
+    for (let i=0;i<N;i++){
+      const p = toPx(pos[i]);
+      drawNode(p.x, p.y, `R${i}`);
+    }
+  }
+
+  function resizeCanvas() {
+    const rect = cv.getBoundingClientRect();
+    cv.width = Math.floor(rect.width * devicePixelRatio);
+    cv.height = Math.floor(rect.height * devicePixelRatio);
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    redrawAll();
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  // ---------------------------
+  // Presets (para seguir teniendo grafos listos)
+  // ---------------------------
+  const presets = [
+    { name: "Preset: Ciclo con retorno (N=5)", N:5, edges:[[0,1],[1,2],[2,3],[3,4],[4,1]] },
+    { name: "Preset: Línea 0→1→2→3→4 (N=5)", N:5, edges:[[0,1],[1,2],[2,3],[3,4]] },
+    { name: "Preset: Dos componentes + puente (N=6)", N:6, edges:[[0,1],[1,2],[2,0],[3,4],[4,5],[5,3],[2,3]] },
+    { name: "Preset: DAG (N=7)", N:7, edges:[[0,1],[0,2],[1,3],[2,3],[2,4],[4,5],[3,6]] },
+    { name: "Preset: Malla 3×3 (N=9)", N:9, edges:(() => {
+        const E=[], w=3, id=(r,c)=>r*w+c;
+        for (let r=0;r<w;r++) for (let c=0;c<w;c++){
+          if (c+1<w) E.push([id(r,c), id(r,c+1)]);
+          if (r+1<w) E.push([id(r,c), id(r+1,c)]);
+        }
+        return E;
+      })()
+    },
+  ];
+  let presetIndex = 0;
+
+  function initMatrixEmpty(n) {
+    N = n;
+    A_direct = new Array(N*N).fill(0);
+    if (chkReflexiva.checked) for (let i=0;i<N;i++) A_direct[idx(i,i)] = 1;
+  }
+
+  function applyPreset(i) {
+    stopAuto();
+    simActive = false;
+    simK = 0;
+    lastNew.clear();
+    btnSimStep.disabled = true;
+    btnSimRun.disabled = true;
+    btnSimPause.disabled = true;
+    btnSimReset.disabled = true;
+    chipInfo.textContent = "estado: normal";
+
+    presetIndex = (i + presets.length) % presets.length;
+    const p = presets[presetIndex];
+    initMatrixEmpty(p.N);
+
+    const addEdge = (u,v) => {
+      A_direct[idx(u,v)] = 1;
+      if (!directed) A_direct[idx(v,u)] = 1;
+    };
+    for (const [u,v] of p.edges) addEdge(u,v);
+
+    computePositionsCircle();
+    computeClosureFullFromDirect();
+    taMatrix.value = matrixToText(A_direct);
+    setMsgOk(`Cargado: ${p.name}`);
+    redrawAll();
+  }
+
+  function rebuildPresetSelect() {
+    selPreset.innerHTML = "";
+    presets.forEach((p, i) => {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = p.name;
+      selPreset.appendChild(opt);
+    });
+    selPreset.value = String(presetIndex);
+  }
+
+  // ---------------------------
+  // Acciones: cargar matriz propia
+  // ---------------------------
+  function loadFromTextarea() {
+    stopAuto();
+    try {
+      const { n, A } = parseMatrixText(taMatrix.value);
+      N = n;
+      A_direct = A;
+      if (chkReflexiva.checked) {
+        for (let i=0;i<N;i++) A_direct[i*N + i] = 1;
+      }
+      // Si está en modo no-dirigido, simetrizamos (mantiene lo que el usuario puso, y completamos espejo)
+      if (!directed) {
+        for (let i=0;i<N;i++){
+          for (let j=0;j<N;j++){
+            if (A_direct[i*N + j] === 1) A_direct[j*N + i] = 1;
+          }
+        }
+      }
+
+      computePositionsCircle();
+      computeClosureFullFromDirect();
+      simActive = false;
+      lastNew.clear();
+      chipInfo.textContent = "estado: normal";
+
+      btnSimStep.disabled = true;
+      btnSimRun.disabled = true;
+      btnSimPause.disabled = true;
+      btnSimReset.disabled = true;
+
+      setMsgOk(`Matriz cargada correctamente (N=${N}).`);
+      redrawAll();
+    } catch (e) {
+      setMsgErr("Error al cargar la matriz:\n" + e.message);
+    }
+  }
+
+  function exportCurrentMatrix() {
+    taMatrix.value = matrixToText(A_direct);
+    setMsgOk("Matriz actual exportada al cuadro de texto.");
+  }
+
+  function makeZeroMatrix() {
+    const n = Math.max(2, Math.min(50, Number(inN.value || 6)));
+    initMatrixEmpty(n);
+    computePositionsCircle();
+    computeClosureFullFromDirect();
+    taMatrix.value = matrixToText(A_direct);
+    setMsgOk(`Matriz ${n}×${n} creada. Ahora edítala y pulsa “Cargar matriz”.`);
+    redrawAll();
+  }
+
+  // ---------------------------
+  // UI Hooks
+  // ---------------------------
+  selPreset.addEventListener("change", () => applyPreset(Number(selPreset.value)));
+  btnNext.onclick = () => { applyPreset(presetIndex + 1); rebuildPresetSelect(); };
+  btnReload.onclick = () => applyPreset(presetIndex);
+
+  btnView.onclick = () => { showClosure = !showClosure; redrawAll(); };
+  btnDir.onclick = () => {
+    directed = !directed;
+    // Si pasas a no-dirigido, simetrizamos la matriz actual
+    if (!directed) {
+      for (let i=0;i<N;i++){
+        for (let j=0;j<N;j++){
+          if (A_direct[idx(i,j)] === 1) A_direct[idx(j,i)] = 1;
+        }
+      }
+      taMatrix.value = matrixToText(A_direct);
+    }
+    computeClosureFullFromDirect();
+    redrawAll();
+  };
+
+  btnLoadMatrix.onclick = loadFromTextarea;
+  btnExport.onclick = exportCurrentMatrix;
+  btnMakeZero.onclick = makeZeroMatrix;
+
+  // Simulación
+  btnSimStart.onclick = () => { simStart(); };
+  btnSimStep.onclick  = () => { simStepOnce(); };
+  btnSimRun.onclick   = () => { simRunAuto(); };
+  btnSimPause.onclick = () => { simPause(); };
+  btnSimReset.onclick = () => { simReset(); };
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === ' ') { e.preventDefault(); showClosure = !showClosure; redrawAll(); }
+    if (e.key === 'u' || e.key === 'U') { directed = !directed; btnDir.click(); }
+    if (e.key === 'r' || e.key === 'R') { applyPreset(presetIndex); }
+    if (e.key === 'g' || e.key === 'G') { applyPreset(presetIndex + 1); rebuildPresetSelect(); }
+  });
+
+  // ---------------------------
+  // Init
+  // ---------------------------
+  rebuildPresetSelect();
+  applyPreset(0);
+  resizeCanvas();
+})();
+</script>
+</body>
+</html>

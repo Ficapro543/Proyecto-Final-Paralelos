@@ -1,0 +1,74 @@
+%% =====================================================
+%% Portada - Documento académico - Versión APA
+%% =====================================================
+\begin{titlepage}
+    \thispagestyle{empty}
+    
+    % Cambiar a interlineado sencillo solo para la portada
+    \singlespacing
+    
+    %% =====================================================
+    %% ENCABEZADO INSTITUCIONAL
+    %% =====================================================
+    \begin{center}
+        UNIVERSIDAD NACIONAL DE SAN ANTONIO ABAD DEL CUSCO\\[0.3cm]
+        FACULTAD DE INGENIERÍA ELÉCTRICA, ELECTRÓNICA, INFORMÁTICA Y MECÁNICA\\[0.3cm]
+        ESCUELA PROFESIONAL DE INGENIERÍA INFORMÁTICA Y DE SISTEMAS
+    \end{center}
+
+    
+    %% =====================================================
+    %% ESCUDO/LOGO INSTITUCIONAL
+    %% =====================================================
+    \vspace{0.25cm}
+    \begin{figure}[H]
+        \centering
+        \includegraphics[scale=0.3]{imagenes/escudo.png}
+    \end{figure}
+    
+    %% =====================================================
+    %% TÍTULO DEL DOCUMENTO
+    %% =====================================================
+    \begin{center}
+        \Large{\textbf{\@documenttype}} \\[0.3cm]
+        \rule{160mm}{0.6mm} \\[0.3cm]
+        {\Large \textbf{\@documenttitle}} \\[0.1cm]
+        \rule{160mm}{0.6mm}
+    \end{center}
+    
+    \vspace{1cm}
+    
+    %% =====================================================
+    %% INFORMACIÓN DEL CURSO Y PARTICIPANTES
+    %% =====================================================
+    \noindent\hspace*{2cm}%
+    \parbox{0.5\textwidth}{
+        \raggedright
+        \textbf{Asignatura:} \\
+        \hspace*{2em} \@subject \\[0.8cm]
+        \textbf{Docente:} \\
+        \hspace*{2em} \@advisor \\[0.8cm]
+        % Condicional para singular/plural de "Estudiante(s)"
+        \textbf{\ifnum\value{authorcount}>1 Estudiantes:\else Estudiante:\fi} \\
+        \hspace*{2em}
+        \parbox{\dimexpr\linewidth-2em\relax}{
+            \raggedright
+            \vspace{0.3em}
+            \authorlist
+        }
+    }
+    
+
+    
+    \vfill
+    
+    %% =====================================================
+    %% FECHA DE PUBLICACIÓN
+    %% =====================================================
+    \begin{center}
+        Cusco - Perú \\ \the\year
+    \end{center}
+    
+    % Restaurar interlineado doble para el resto del documento
+    \doublespacing
+\end{titlepage}

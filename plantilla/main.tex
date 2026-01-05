@@ -1,0 +1,566 @@
+\documentclass[10pt,a4paper]{article}  % 12pt según APA
+%% Carga del paquete de formato personalizado
+\usepackage{formato}
+
+%% =====================================================
+%% CONFIGURACIÓN DE LOS DATOS DEL DOCUMENTO
+%% =====================================================
+\documenttype{Proyecto N° 1}
+\documenttitle{Algoritmos de Ordenamiento Paralelos y Secuenciales}
+\subject{Algoritmos Paralelos y Distribuidos}
+\advisor{
+Mgt. Dueñas Jimenez, Ray}
+\semester{2025-II}
+
+%% =====================================================
+%% REGISTRO DE AUTORES/ESTUDIANTES
+%% =====================================================
+% Para múltiples autores
+\addauthor{Castro Pari, Rayneld Fidel}
+\addauthor{Mayhuire Chacon, Brenda Lucia}
+\addauthor{Mendoza Quispe, Jose Daniel}
+\addauthor{Perez Cahuana, Gabriel}
+\addauthor{Zevallos Yanqui, Andy Jefferson}
+%\addauthor{Apellido1 Apellido2, Nombre1 Nombre2}
+%\addauthor{Apellido1 Apellido2, Nombre1 Nombre2}
+
+%% =====================================================
+%% INICIO DEL DOCUMENTO
+%% =====================================================
+\begin{document}
+
+%% =====================================================
+%% PORTADA
+%% =====================================================
+\thispagestyle{empty}  % La portada no tiene numeración de página
+\makeatletter
+\input{portada.tex}    % Incluye la portada
+\makeatother
+
+%% =====================================================
+%% INICIO DE SECCIONES PRELIMINARES CON NUMERACIÓN ROMANA
+%% =====================================================
+\startpreliminary
+\clearpage
+
+%% =====================================================
+%% TABLA DE CONTENIDOS
+%% =====================================================
+\tableofcontents
+\clearpage
+
+%% =====================================================
+%% ÍNDICES DE FIGURAS Y TABLAS (Opcional)
+%% =====================================================
+% Descomenta si tienes figuras y tablas
+\listoffigures
+\clearpage
+%\listoftables
+%\clearpage
+
+%% =====================================================
+%% CAMBIO A NUMERACIÓN ARÁBIGA PARA EL CONTENIDO PRINCIPAL
+%% =====================================================
+\startmain
+
+%% =====================================================
+%% CONTENIDO PRINCIPAL DEL DOCUMENTO
+%% =====================================================
+%================================================
+\section*{1.\ \ \ Resumen}
+\addcontentsline{toc}{section}{1.\ \ \ Resumen}
+
+La \textbf{cerradura transitiva booleana} (también conocida como \textbf{Warshall lógico}) es un algoritmo clásico de álgebra booleana
+y teoría de grafos que permite determinar la \textbf{alcanzabilidad} entre todos los pares de vértices de un grafo dirigido.
+A partir de una matriz de adyacencia $A \in \{0,1\}^{N \times N}$, el algoritmo produce una matriz $T$ donde $T_{ij}=1$ si existe
+un camino (de longitud $\ge 0$ o $\ge 1$ según convención) desde $i$ hasta $j$.
+
+Este trabajo propone Warshall lógico como candidato para la \textbf{paralelización con CUDA} debido a su estructura matricial,
+su costo computacional \textbf{$O(N^3)$} y su verificación directa comparando contra la versión secuencial. Se describe el algoritmo,
+su representación matricial, su complejidad y un diseño de implementación secuencial en C/C++ con medición de tiempo para diferentes
+tamaños de $N$ (incluyendo $N \ge 1024$) y verificación para matrices pequeñas.
+
+\clearpage
+
+%================================================
+\section*{2.\ \ \ Introducción}
+\addcontentsline{toc}{section}{2.\ \ \ Introducción}
+
+En problemas reales de computación científica e ingeniería, es frecuente trabajar con \textbf{matrices masivas}:
+modelos de conectividad, relaciones de dependencia, grafos de estados, análisis de flujos, rutas, etc.
+Cuando el tamaño $N$ crece (por ejemplo $N \ge 1024$), el costo de los algoritmos cúbicos puede volverse prohibitivo
+en CPU, lo cual motiva el uso de paralelización en GPU (CUDA).
+
+El algoritmo de Warshall lógico pertenece a la familia de algoritmos \textbf{All-Pairs Reachability} y es una variante booleana
+del cálculo de caminos. Su núcleo consiste en actualizar $A_{ij}$ usando operaciones booleanas con un índice intermedio $k$,
+manteniendo una dependencia por iteración de $k$ que es relevante para el diseño paralelo.
+
+\clearpage
+
+%================================================
+\section*{3.\ \ \ Objetivo General}
+\addcontentsline{toc}{section}{3.\ \ \ Objetivo General}
+
+\textbf{Diseñar, implementar y evaluar} la aceleración obtenida al paralelizar el algoritmo de \textbf{cerradura transitiva booleana}
+(Warshall lógico) para matrices cuadradas masivas ($N \ge 1024$), comparando:
+\begin{itemize}
+  \item Versión secuencial (CPU).
+  \item Versión paralela (CUDA) en Fase 2.
+  \item (Opcional en Fase 2) Versión CPU multi-core (OpenMP) para comparación.
+\end{itemize}
+
+\clearpage
+
+%================================================
+\section*{4.\ \ \ Warshall Lógico: Versión Secuencial}
+\addcontentsline{toc}{section}{4.\ \ \ Warshall Lógico: Versión Secuencial}
+
+El algoritmo de Warshall lógico calcula la \textbf{cerradura transitiva} de un grafo dirigido usando su matriz de adyacencia.
+Sea $A$ la matriz de entrada, donde:
+\[
+A_{ij} =
+\begin{cases}
+1, & \text{si existe un arco directo } i \to j\\
+0, & \text{caso contrario}
+\end{cases}
+\]
+La idea es permitir, progresivamente, que los caminos utilicen vértices intermedios del conjunto $\{0,1,\dots,k\}$.
+
+\subsection*{4.1.\ \ Requisitos del Algoritmo}
+\addcontentsline{toc}{subsection}{4.1.\ \ Requisitos del Algoritmo}
+
+\textbf{(a) Operación con matrices masivas:} El algoritmo trabaja con una matriz cuadrada booleana $N \times N$.
+Para el proyecto se requiere $N \ge 1024$.
+
+\textbf{(b) Complejidad mínima:} Warshall lógico presenta complejidad temporal:
+\[
+T(N) = O(N^3),
+\]
+lo cual es un excelente candidato para paralelización porque el costo crece rápidamente con $N$.
+
+\textbf{(c) Verificabilidad:} La versión paralela puede validarse comparando su salida con la versión secuencial (CPU) usando:
+\begin{itemize}
+  \item Comparación elemento a elemento para matrices pequeñas (por ejemplo $N \le 128$).
+  \item Pruebas aleatorias (random testing) con semillas fijas.
+  \item Casos controlados (grafos con estructura conocida: cadena, ciclo, completo, vacío).
+\end{itemize}
+
+\clearpage
+
+%================================================
+\section*{5.\ \ \ Descripción del Algoritmo}
+\addcontentsline{toc}{section}{5.\ \ \ Descripción del Algoritmo}
+
+\subsection*{5.1.\ \ Campo de aplicación}
+\addcontentsline{toc}{subsection}{5.1.\ \ Campo de aplicación}
+
+La cerradura transitiva se usa en:
+\begin{itemize}
+  \item \textbf{Teoría de grafos}: alcanzabilidad, componentes, análisis de conectividad.
+  \item \textbf{Bases de datos}: consultas de tipo \textit{reachability} sobre relaciones (p.ej., jerarquías, dependencias).
+  \item \textbf{Compiladores y análisis de programas}: grafos de flujo, dependencias entre módulos.
+  \item \textbf{Redes y sistemas}: análisis de rutas y acceso entre nodos.
+\end{itemize}
+
+\subsection*{5.2.\ \ Descripción detallada del funcionamiento}
+\addcontentsline{toc}{subsection}{5.2.\ \ Descripción detallada del funcionamiento}
+
+Warshall lógico aplica la recurrencia:
+\[
+A_{ij} \leftarrow A_{ij}\ \lor\ (A_{ik} \land A_{kj})
+\quad \text{para } k=0,\dots,N-1.
+\]
+Intuición:
+\begin{itemize}
+  \item $A_{ik}=1$ indica que $i$ puede llegar a $k$.
+  \item $A_{kj}=1$ indica que $k$ puede llegar a $j$.
+  \item Si ambos son verdaderos, entonces $i$ puede llegar a $j$ usando a $k$ como intermedio.
+\end{itemize}
+
+\subsubsection*{Pseudocódigo (Warshall lógico)}
+\addcontentsline{toc}{subsubsection}{Pseudocódigo (Warshall lógico)}
+
+\begin{algorithm}[H]
+\caption{Cerradura transitiva booleana (Warshall lógico)}
+\KwIn{Matriz booleana $A \in \{0,1\}^{N\times N}$}
+\KwOut{Matriz booleana $A$ actualizada con su cerradura transitiva}
+\For{$k \leftarrow 0$ \KwTo $N-1$}{
+  \For{$i \leftarrow 0$ \KwTo $N-1$}{
+    \For{$j \leftarrow 0$ \KwTo $N-1$}{
+      $A[i][j] \leftarrow A[i][j]\ \lor\ (A[i][k] \land A[k][j])$\;
+    }
+  }
+}
+\end{algorithm}
+
+\subsubsection*{Ejemplo pequeño}
+Considere $N=4$ y la matriz de adyacencia:
+\[
+A=
+\begin{bmatrix}
+0&1&0&0\\
+0&0&1&0\\
+0&0&0&1\\
+0&0&0&0
+\end{bmatrix}
+\]
+Esto representa la cadena $0\to1\to2\to3$. La cerradura transitiva resultante debe permitir:
+$0$ llega a $2$ y $3$, y $1$ llega a $3$. Por tanto:
+\[
+T=
+\begin{bmatrix}
+0&1&1&1\\
+0&0&1&1\\
+0&0&0&1\\
+0&0&0&0
+\end{bmatrix}
+\]
+
+\clearpage
+
+%================================================
+\section*{6.\ \ \ Representación Matricial}
+\addcontentsline{toc}{section}{6.\ \ \ Representación Matricial}
+
+\subsection*{6.1.\ \ Representación de los datos de entrada}
+\addcontentsline{toc}{subsection}{6.1.\ \ Representación de los datos de entrada}
+
+La entrada se modela como una matriz booleana $A$:
+\[
+A \in \{0,1\}^{N\times N}.
+\]
+Cada fila $i$ representa los destinos alcanzables desde $i$ en un paso (aristas directas).
+
+\textbf{Memoria:} almacenar $A$ como \texttt{uint8\_t} (1 byte) requiere $N^2$ bytes.
+Para $N=1024$, $N^2=1{,}048{,}576$ entradas $\approx 1$ MB.
+
+\subsection*{6.2.\ \ Representación de la operación núcleo}
+\addcontentsline{toc}{subsection}{6.2.\ \ Representación de la operación núcleo}
+
+La actualización elemento a elemento es:
+\[
+A_{ij}^{(k)} = A_{ij}^{(k-1)} \lor \left(A_{ik}^{(k-1)} \land A_{kj}^{(k-1)}\right).
+\]
+Donde el superíndice $(k)$ indica que se permiten vértices intermedios hasta $k$.
+
+\subsection*{6.3.\ \ Representación de los datos de salida}
+\addcontentsline{toc}{subsection}{6.3.\ \ Representación de los datos de salida}
+
+La salida es la misma matriz $A$ ya actualizada (in-place) o una matriz $T$ separada.
+En ambos casos:
+\[
+T_{ij}=1 \iff \exists \text{ un camino de } i \text{ a } j.
+\]
+
+\clearpage
+
+%================================================
+\section*{7.\ \ \ Complejidad Computacional}
+\addcontentsline{toc}{section}{7.\ \ \ Complejidad Computacional}
+
+\subsection*{7.1.\ \ Parámetros relevantes}
+\addcontentsline{toc}{subsection}{7.1.\ \ Parámetros relevantes}
+
+\begin{itemize}
+  \item $N$: dimensión de la matriz cuadrada ($N \times N$).
+  \item Operación booleana básica: $\lor$ y $\land$ (tiempo constante en CPU).
+  \item Accesos a memoria: lecturas de $A[i][j]$, $A[i][k]$, $A[k][j]$ y escritura de $A[i][j]$.
+\end{itemize}
+
+\subsubsection*{7.1.1.\ \ Complejidad temporal}
+\addcontentsline{toc}{subsubsection}{7.1.1.\ \ Complejidad temporal}
+
+El algoritmo ejecuta tres bucles anidados de tamaño $N$, por lo tanto:
+\[
+T(N)=\sum_{k=1}^{N}\sum_{i=1}^{N}\sum_{j=1}^{N} O(1)=O(N^3).
+\]
+
+\subsubsection*{7.1.2.\ \ Complejidad espacial}
+\addcontentsline{toc}{subsubsection}{7.1.2.\ \ Complejidad espacial}
+
+La memoria principal está dominada por la matriz:
+\[
+S(N)=O(N^2).
+\]
+
+\subsubsection*{7.1.3.\ \ Implicancias para el rendimiento}
+\addcontentsline{toc}{subsubsection}{7.1.3.\ \ Implicancias para el rendimiento}
+
+Para $N$ grande, el tiempo está fuertemente influenciado por:
+\begin{itemize}
+  \item \textbf{Localidad de memoria}: el acceso repetido a filas/columnas puede causar fallos de caché.
+  \item \textbf{Ancho de banda}: $O(N^3)$ operaciones implican múltiples lecturas/escrituras.
+  \item \textbf{Dependencias}: existe una dependencia fuerte por iteración de $k$, lo cual define el diseño paralelo.
+\end{itemize}
+
+\clearpage
+
+%================================================
+\section*{8.\ \ \ Análisis del Algoritmo}
+\addcontentsline{toc}{section}{8.\ \ \ Análisis del Algoritmo}
+
+\subsection*{8.1.\ \ Funcionamiento del Algoritmo}
+\addcontentsline{toc}{subsection}{8.1.\ \ Funcionamiento del Algoritmo}
+
+La iteración externa ($k$) se interpreta como: ``permitir que $k$ sea vértice intermedio''.
+Para cada $k$, se actualizan todos los pares $(i,j)$ en la matriz.
+
+\textbf{Dependencia de datos clave:}
+\begin{itemize}
+  \item Para un $k$ fijo, cada celda $(i,j)$ se puede calcular de manera independiente \textbf{si se leen} $A[i][k]$ y $A[k][j]$
+  consistentes con la iteración $k$.
+  \item Sin embargo, pasar de $k$ a $k+1$ requiere que todas las actualizaciones de $k$ estén completadas.
+\end{itemize}
+
+Esto sugiere un patrón típico para CUDA:
+\begin{itemize}
+  \item Mantener el bucle $k$ en CPU o en GPU de forma secuencial.
+  \item Para cada $k$, paralelizar la actualización de $A[i][j]$ sobre una grilla 2D de hilos.
+\end{itemize}
+
+\subsection*{8.2.\ \ Justificación del Algoritmo como candidato CUDA}
+\addcontentsline{toc}{subsection}{8.2.\ \ Justificación del Algoritmo}
+
+Warshall lógico cumple los requisitos del proyecto:
+\begin{itemize}
+  \item \textbf{Matrices masivas:} $A$ es $N \times N$ y puede evaluarse con $N\ge 1024$.
+  \item \textbf{Alta complejidad:} $O(N^3)$ (categoría ``Alto'').
+  \item \textbf{Paralelizable:} para un $k$ fijo, las celdas $(i,j)$ son paralelizables.
+  \item \textbf{Verificación directa:} comparación bit a bit contra la versión secuencial.
+\end{itemize}
+
+\textbf{Nota de optimización para Fase 2 (opcional):} En GPU suele ser ventajoso aplicar una versión \textbf{bloqueada (tiled)}
+para aprovechar memoria compartida y mejorar coalescencia, similar a Floyd-Warshall bloqueado.
+
+\subsection*{8.3.\ \ Ejecución y Medición del Tiempo (CPU)}
+\addcontentsline{toc}{subsection}{8.3.\ \ Ejecución y Medición del Tiempo (CPU)}
+
+La medición debe contabilizar únicamente el \textbf{núcleo del algoritmo} (los bucles $k,i,j$), excluyendo:
+\begin{itemize}
+  \item Generación/lectura de la matriz.
+  \item Impresión de matrices.
+  \item Verificación (cuando se mida rendimiento).
+\end{itemize}
+
+Se recomienda usar \texttt{clock\_gettime(CLOCK\_MONOTONIC, ...)} para medir en segundos.
+
+\subsection*{8.4.\ \ Medición del rendimiento (diferentes tamaños)}
+\addcontentsline{toc}{subsection}{8.4.\ \ Medición del rendimiento (diferentes tamaños)}
+
+La ejecución debe repetirse para varios tamaños:
+\[
+N \in \{128,256,512,1024,2048,\dots\}
+\]
+y registrar el tiempo $t(N)$.
+
+\begin{table}[H]
+\centering
+\caption{Plantilla de resultados (CPU secuencial)}
+\begin{tabular}{@{}rrrr@{}}
+\toprule
+$N$ & Entradas ($N^2$) & Tiempo (s) & Observaciones \\ \midrule
+128  & 16384   & -- & Verificación habilitada \\
+256  & 65536   & -- & -- \\
+512  & 262144  & -- & -- \\
+1024 & 1048576 & -- & Caso masivo requerido \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\clearpage
+
+%================================================
+\section*{9.\ \ \ Conclusiones}
+\addcontentsline{toc}{section}{9.\ \ \ Conclusiones}
+
+\begin{itemize}
+  \item Warshall lógico permite calcular la cerradura transitiva booleana de una matriz de adyacencia y resolver alcanzabilidad
+  all-pairs en grafos dirigidos.
+  \item Su complejidad \textbf{$O(N^3)$} lo vuelve un candidato fuerte para acelerar con CUDA cuando $N \ge 1024$.
+  \item La dependencia por iteración $k$ impone un esquema paralelo por ``fases'' (un kernel por $k$ o un enfoque bloqueado),
+  pero dentro de cada $k$ el paralelismo sobre $(i,j)$ es masivo.
+  \item La validación es clara: la salida paralela debe coincidir con la salida secuencial.
+\end{itemize}
+
+\clearpage
+
+%================================================
+\section*{10.\ \ \ ANEXOS}
+\addcontentsline{toc}{section}{10.\ \ \ ANEXOS}
+
+\subsection*{A. Implementación secuencial en C (con medición de tiempo y verificación)}
+\addcontentsline{toc}{subsection}{A. Implementación secuencial en C (con medición de tiempo y verificación)}
+
+\textbf{Estructura propuesta:}
+\begin{itemize}
+  \item \texttt{alloc\_matrix}: reserva memoria contigua $N^2$.
+  \item \texttt{init\_random}: genera matriz booleana (densidad controlable).
+  \item \texttt{warshall\_logical}: núcleo $O(N^3)$.
+  \item \texttt{verify\_small}: comparación con versión alternativa o pruebas controladas.
+  \item \texttt{timing}: medición del tiempo sólo del núcleo.
+\end{itemize}
+
+\begin{lstlisting}[caption={warshall_logico_secuencial.c}]
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <time.h>
+
+static inline double seconds_now() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
+}
+
+uint8_t* alloc_matrix(int N) {
+    uint8_t* A = (uint8_t*)malloc((size_t)N * (size_t)N * sizeof(uint8_t));
+    if (!A) {
+        fprintf(stderr, "Error: no se pudo asignar memoria para N=%d\n", N);
+        exit(EXIT_FAILURE);
+    }
+    return A;
+}
+
+void init_random(uint8_t* A, int N, double p, unsigned seed) {
+    // p = probabilidad de 1 (densidad). Ej: p=0.05 -> matriz dispersa
+    srand(seed);
+    for (int i = 0; i < N*N; i++) {
+        double r = (double)rand() / (double)RAND_MAX;
+        A[i] = (r < p) ? 1 : 0;
+    }
+}
+
+void init_chain_example(uint8_t* A, int N) {
+    // Ejemplo controlado: cadena 0->1->2->...->N-1
+    for (int i = 0; i < N*N; i++) A[i] = 0;
+    for (int i = 0; i < N-1; i++) A[i*N + (i+1)] = 1;
+}
+
+void print_matrix(const uint8_t* A, int N) {
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            printf("%d ", (int)A[i*N + j]);
+        }
+        printf("\n");
+    }
+}
+
+void warshall_logical(uint8_t* A, int N) {
+    // A[i][j] = A[i][j] OR (A[i][k] AND A[k][j])
+    for (int k = 0; k < N; k++) {
+        for (int i = 0; i < N; i++) {
+            uint8_t aik = A[i*N + k];
+            if (!aik) continue; // pequeño ahorro: si A[i][k]==0, no aporta
+            for (int j = 0; j < N; j++) {
+                A[i*N + j] = (uint8_t)(A[i*N + j] | (aik & A[k*N + j]));
+            }
+        }
+    }
+}
+
+int matrices_equal(const uint8_t* A, const uint8_t* B, int N) {
+    for (int i = 0; i < N*N; i++) {
+        if (A[i] != B[i]) return 0;
+    }
+    return 1;
+}
+
+int main(int argc, char** argv) {
+    int N = 256;
+    double p = 0.05;
+    unsigned seed = 1234;
+    int verify = 0;
+
+    if (argc >= 2) N = atoi(argv[1]);        // ./a.out N
+    if (argc >= 3) p = atof(argv[2]);        // ./a.out N p
+    if (argc >= 4) seed = (unsigned)atoi(argv[3]); // ./a.out N p seed
+    if (argc >= 5) verify = atoi(argv[4]);   // ./a.out N p seed verify
+
+    uint8_t* A = alloc_matrix(N);
+    init_random(A, N, p, seed);
+
+    // Verificación sólo para N pequeño (opcional)
+    // Aquí se muestra un ejemplo de verificación con un caso controlado "cadena"
+    if (verify && N <= 64) {
+        uint8_t* Atest = alloc_matrix(N);
+        uint8_t* Aref  = alloc_matrix(N);
+        init_chain_example(Atest, N);
+        for (int i = 0; i < N*N; i++) Aref[i] = Atest[i];
+
+        warshall_logical(Atest, N);
+
+        // Propiedad esperada para cadena: si i<j entonces alcanzable (1) para j>i
+        for (int i = 0; i < N; i++) {
+            for (int j = i+1; j < N; j++) {
+                Aref[i*N + j] = 1;
+            }
+        }
+
+        if (!matrices_equal(Atest, Aref, N)) {
+            fprintf(stderr, "Verificacion FALLIDA para N=%d\n", N);
+            fprintf(stderr, "Salida obtenida:\n"); print_matrix(Atest, N);
+            fprintf(stderr, "Salida esperada:\n"); print_matrix(Aref, N);
+            return EXIT_FAILURE;
+        } else {
+            printf("Verificacion OK para N=%d (caso cadena)\n", N);
+        }
+        free(Atest); free(Aref);
+    }
+
+    // Medición del núcleo
+    double t0 = seconds_now();
+    warshall_logical(A, N);
+    double t1 = seconds_now();
+
+    printf("N=%d, p=%.3f, tiempo_nucleo=%.6f s\n", N, p, (t1 - t0));
+
+    free(A);
+    return 0;
+}
+\end{lstlisting}
+
+\subsection*{B. Comandos de compilación y ejecución (Linux/Colab)}
+\addcontentsline{toc}{subsection}{B. Comandos de compilación y ejecución (Linux/Colab)}
+
+\begin{verbatim}
+# Compilar (GCC)
+gcc -O3 -std=c11 warshall_logico_secuencial.c -o warshall
+
+# Ejecutar: ./warshall N p seed verify
+# N: tamaño, p: densidad, seed: semilla, verify: 1/0
+./warshall 256 0.05 1234 1
+./warshall 1024 0.02 1234 0
+\end{verbatim}
+
+\subsection*{C. Cómo se evaluará en Fase 2 (referencia del proyecto)}
+\addcontentsline{toc}{subsection}{C. Cómo se evaluará en Fase 2 (referencia del proyecto)}
+
+Para la Fase 2 (entrega: 7 de enero 2026), se implementará el núcleo en CUDA y se comparará contra CPU (y opcionalmente OpenMP)
+con métricas:
+\[
+\text{Speedup } S=\frac{T_{\text{secuencial}}}{T_{\text{paralelo}}}
+\qquad
+\text{Efficiency (OpenMP) } E=\frac{S}{\#\text{núcleos}}.
+\]
+Además, se analizará en CUDA:
+\begin{itemize}
+  \item Configuración de \textit{blocks} e hilos por bloque.
+  \item Coalescencia de memoria global.
+  \item Uso de memoria compartida (tiling).
+\end{itemize}
+
+
+%\input{ejemplo}
+%\input{subsections/07-anexos}
+%\input{subsections/08-apendices}
+%\input{subsections/09-glosario}
+
+%% =====================================================
+%% BIBLIOGRAFÍA
+%% =====================================================
+%\printreferences[Referencias Bibliográficas]
+
+%% =====================================================
+%% FIN DEL DOCUMENTO
+%% =====================================================
+\end{document}
