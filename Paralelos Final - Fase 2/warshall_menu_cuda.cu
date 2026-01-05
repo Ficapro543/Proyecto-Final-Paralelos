@@ -1,10 +1,10 @@
 // warshall_menu_cuda.cu
-// CUDA: Cerradura transitiva booleana (Warshall lógico) + MENÚ interactivo
+// CUDA: Cerradura transitiva booleana (Warshall logico) + MENU interactivo
 //
-// Opciones de menú:
-//   (1) ingresar matriz manual + parámetros
-//   (2) ingresar parámetros + grafo random
-//   (3) grafo y parámetros random
+// Opciones de menu:
+//   (1) ingresar matriz manual + parametros
+//   (2) ingresar parametros + grafo random
+//   (3) grafo y parametros random
 //
 // Modo por argumentos (como antes):
 //   ./warshall_cuda N p seed repeats verify [print]
@@ -18,15 +18,15 @@
 //   ./warshall_cuda
 //   ./warshall_cuda 1024 0.05 1234 3 0 0
 //
-// Nota de paralelización:
+// Nota de paralelizacion:
 // - k se mantiene SECUENCIAL (dependencia entre iteraciones).
 // - Para cada k, se lanza un kernel 2D que actualiza TODAS las celdas (i,j) en paralelo.
 //
 // IMPORTANTE (correctitud):
-// - Este kernel lee A[i,k] y A[k,j] del MISMO buffer A que también se escribe.
-//   Eso replica tu versión CUDA didáctica anterior, y suele funcionar para Warshall booleano,
+// - Este kernel lee A[i,k] y A[k,j] del MISMO buffer A que tambien se escribe.
+//   Eso replica tu version CUDA didactica anterior, y suele funcionar para Warshall booleano,
 //   pero si quieres "paso k limpio" (lectura desde snapshot), usa doble buffer (Ain->Aout)
-//   por cada k (más lento por copias). Aquí dejo la versión simple y rápida (in-place).
+//   por cada k (mas lento por copias). Aqui dejo la version simple y rapida (in-place).
 
 #define _POSIX_C_SOURCE 200809L
 
@@ -49,7 +49,7 @@ static inline void CUDA_CHECK(cudaError_t e, const char* file, int line) {
 #define CUDA_CALL(x) CUDA_CHECK((x), __FILE__, __LINE__)
 
 // =====================================================
-// Timing (CPU wall time) para medir total del "núcleo"
+// Timing (CPU wall time) para medir total del "nucleo"
 // =====================================================
 static inline double seconds_now(void) {
     struct timespec ts;
@@ -115,7 +115,7 @@ __global__ void warshall_step_u8(uint8_t* A, int N, int k) {
     int i = blockIdx.y * blockDim.y + threadIdx.y; // row
     if (i < N && j < N) {
         uint8_t aik = A[i * N + k];
-        if (!aik) return; // pequeño atajo
+        if (!aik) return; // pequeno atajo
         uint8_t akj = A[k * N + j];
         uint8_t aij = A[i * N + j];
         A[i * N + j] = (uint8_t)(aij | (aik & akj));
@@ -123,7 +123,7 @@ __global__ void warshall_step_u8(uint8_t* A, int N, int k) {
 }
 
 // =====================================================
-// Núcleo: Warshall lógico (CUDA)
+// Nucleo: Warshall logico (CUDA)
 // =====================================================
 static void warshall_logical_cuda(uint8_t* A_host, int N) {
     size_t bytes = (size_t)N * (size_t)N * sizeof(uint8_t);
@@ -139,7 +139,7 @@ static void warshall_logical_cuda(uint8_t* A_host, int N) {
     for (int k = 0; k < N; k++) {
         warshall_step_u8<<<grid, block>>>(d_A, N, k);
         CUDA_CALL(cudaGetLastError());
-        CUDA_CALL(cudaDeviceSynchronize()); // claridad/didáctica
+        CUDA_CALL(cudaDeviceSynchronize()); // claridad/didactica
     }
 
     CUDA_CALL(cudaMemcpy(A_host, d_A, bytes, cudaMemcpyDeviceToHost));
@@ -197,7 +197,7 @@ static int verify_against_ref(const uint8_t* Rref, const uint8_t* Aout, int N) {
         for (int j = 0; j < N; j++) {
             if (rr[j] != ao[j]) {
                 std::fprintf(stderr,
-                        "FALLO verificación: fila i=%d, col j=%d | esperado=%d, obtenido=%d\n",
+                        "FALLO verificacion: fila i=%d, col j=%d | esperado=%d, obtenido=%d\n",
                         i, j, (int)rr[j], (int)ao[j]);
                 return 0;
             }
@@ -231,7 +231,7 @@ static long read_long_prompt(const char* prompt, long minv, long maxv) {
                 if (v >= minv && v <= maxv) return v;
             }
         }
-        std::printf("Entrada inválida. Rango permitido: [%ld..%ld]\n", minv, maxv);
+        std::printf("Entrada invalida. Rango permitido: [%ld..%ld]\n", minv, maxv);
     }
 }
 
@@ -250,7 +250,7 @@ static double read_double_prompt(const char* prompt, double minv, double maxv) {
                 if (v >= minv && v <= maxv) return v;
             }
         }
-        std::printf("Entrada inválida. Rango permitido: [%.3f..%.3f]\n", minv, maxv);
+        std::printf("Entrada invalida. Rango permitido: [%.3f..%.3f]\n", minv, maxv);
     }
 }
 
@@ -265,7 +265,7 @@ static int read_yesno_prompt(const char* prompt) {
         read_line(line, sizeof(line));
         if (line[0] == '1') return 1;
         if (line[0] == '0') return 0;
-        std::printf("Entrada inválida. Escribe 1 o 0.\n");
+        std::printf("Entrada invalida. Escribe 1 o 0.\n");
     }
 }
 
@@ -296,7 +296,7 @@ static int run_experiment(uint8_t* Ain, int N, double p, unsigned seed, int repe
 
     if (verify) {
         if (N > 128) {
-            std::printf("Aviso: verificación activada con N=%d; se recomienda N<=128.\n", N);
+            std::printf("Aviso: verificacion activada con N=%d; se recomienda N<=128.\n", N);
         }
 
         std::memcpy(A, Ain, (size_t)N * (size_t)N);
@@ -313,12 +313,12 @@ static int run_experiment(uint8_t* Ain, int N, double p, unsigned seed, int repe
 
         if (print) {
             print_matrix(Ain,  N, "MATRIZ DE ENTRADA (Grafo / Adyacencia)");
-            print_matrix(Rref, N, "MATRIZ DE VERIFICACIÓN (Referencia BFS)");
-            print_matrix(A,    N, "MATRIZ DE SALIDA (Warshall lógico) [CUDA]");
+            print_matrix(Rref, N, "MATRIZ DE VERIFICACIoN (Referencia BFS)");
+            print_matrix(A,    N, "MATRIZ DE SALIDA (Warshall logico) [CUDA]");
         }
 
-        std::printf("\nVALIDACIÓN (BFS) para N=%d: %s\n", N, ok ? "OK" : "FALLIDA");
-        std::printf("Tiempo del núcleo (warshall_logical_cuda): %.6f s\n", kernel_time);
+        std::printf("\nVALIDACIoN (BFS) para N=%d: %s\n", N, ok ? "OK" : "FALLIDA");
+        std::printf("Tiempo del nucleo (warshall_logical_cuda): %.6f s\n", kernel_time);
         std::printf("Resumen params | N=%d | p=%.3f | seed=%u | repeats=%d | verify=%d | print=%d\n",
                     N, p, seed, repeats, verify, print);
 
@@ -337,7 +337,7 @@ static int run_experiment(uint8_t* Ain, int N, double p, unsigned seed, int repe
         if (dt < best) best = dt;
     }
 
-    std::printf("CUDA Warshall lógico | N=%d | p=%.3f | seed=%u | repeats=%d | best_kernel_time=%.6f s\n",
+    std::printf("CUDA Warshall logico | N=%d | p=%.3f | seed=%u | repeats=%d | best_kernel_time=%.6f s\n",
                 N, p, seed, repeats, best);
 
     std::free(A);
@@ -345,19 +345,19 @@ static int run_experiment(uint8_t* Ain, int N, double p, unsigned seed, int repe
 }
 
 // =====================================================
-// Menú
+// Menu
 // =====================================================
 static void menu_loop(void) {
     for (;;) {
         std::printf("\n==============================\n");
-        std::printf("   MENÚ - Warshall lógico CUDA\n");
+        std::printf("   MENu - Warshall logico CUDA\n");
         std::printf("==============================\n");
-        std::printf("1) Ingresar MATRIZ manual + parámetros\n");
-        std::printf("2) Ingresar parámetros + GRAFO random\n");
-        std::printf("3) Grafo y parámetros RANDOM\n");
+        std::printf("1) Ingresar MATRIZ manual + parametros\n");
+        std::printf("2) Ingresar parametros + GRAFO random\n");
+        std::printf("3) Grafo y parametros RANDOM\n");
         std::printf("0) Salir\n");
 
-        int opt = read_int_prompt("Opción: ", 0, 3);
+        int opt = read_int_prompt("Opcion: ", 0, 3);
         if (opt == 0) break;
 
         int N = 256;
@@ -382,7 +382,7 @@ static void menu_loop(void) {
                     std::printf("Fila %d: ", i);
                     read_line(line, sizeof(line));
                     if (parse_row_01(line, &Ain[i * N], N)) break;
-                    std::printf("Fila inválida. Debe contener %d valores 0/1.\n", N);
+                    std::printf("Fila invalida. Debe contener %d valores 0/1.\n", N);
                 }
             }
 
@@ -424,7 +424,7 @@ static void menu_loop(void) {
             Ain = alloc_matrix(N);
             init_random(Ain, N, p, seed);
 
-            std::printf("\nParámetros random generados:\n");
+            std::printf("\nParametros random generados:\n");
             std::printf("N=%d | p=%.3f | seed=%u | repeats=%d | verify=%d | print=%d\n",
                         N, p, seed, repeats, verify, print);
         }
@@ -433,10 +433,10 @@ static void menu_loop(void) {
         std::free(Ain);
 
         if (rc != EXIT_SUCCESS) {
-            std::printf("Ejecución terminó con error (validación fallida o problema).\n");
+            std::printf("Ejecucion termino con error (validacion fallida o problema).\n");
         }
 
-        if (!read_yesno_prompt("\n¿Deseas ejecutar otra vez?")) break;
+        if (!read_yesno_prompt("\nDeseas ejecutar otra vez")) break;
     }
 }
 

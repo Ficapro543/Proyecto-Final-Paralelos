@@ -1,11 +1,11 @@
 // warshall_menu_omp.c
-// CPU Paralelo con OPENMP: Cerradura transitiva booleana (Warshall lógico)
-// + MENÚ interactivo:
-//   (1) ingresar matriz manual + parámetros
-//   (2) ingresar parámetros + grafo random
-//   (3) grafo y parámetros random
+// CPU Paralelo con OPENMP: Cerradura transitiva booleana (Warshall logico)
+// + MENu interactivo:
+//   (1) ingresar matriz manual + parametros
+//   (2) ingresar parametros + grafo random
+//   (3) grafo y parametros random
 //
-// Mantiene modo clásico por argumentos:
+// Mantiene modo clasico por argumentos:
 //   ./warshall_omp N p seed repeats verify [print]
 //
 // Compilar (Linux):
@@ -88,7 +88,7 @@ static void print_matrix(const uint8_t* A, int N, const char* title) {
 }
 
 // -------------------------
-// Núcleo: Warshall lógico (OPENMP)
+// Nucleo: Warshall logico (OPENMP)
 // -------------------------
 void warshall_logical_omp(uint8_t* A, int N) {
     // A[i][j] = A[i][j] OR (A[i][k] AND A[k][j])
@@ -161,7 +161,7 @@ static int verify_against_ref(const uint8_t* Rref, const uint8_t* Aout, int N) {
         for (int j = 0; j < N; j++) {
             if (rr[j] != ao[j]) {
                 fprintf(stderr,
-                        "FALLO verificación: fila i=%d, col j=%d | esperado=%d, obtenido=%d\n",
+                        "FALLO verificacion: fila i=%d, col j=%d | esperado=%d, obtenido=%d\n",
                         i, j, (int)rr[j], (int)ao[j]);
                 return 0;
             }
@@ -195,7 +195,7 @@ static long read_long_prompt(const char* prompt, long minv, long maxv) {
                 if (v >= minv && v <= maxv) return v;
             }
         }
-        printf("Entrada inválida. Rango permitido: [%ld..%ld]\n", minv, maxv);
+        printf("Entrada invalida. Rango permitido: [%ld..%ld]\n", minv, maxv);
     }
 }
 
@@ -214,7 +214,7 @@ static double read_double_prompt(const char* prompt, double minv, double maxv) {
                 if (v >= minv && v <= maxv) return v;
             }
         }
-        printf("Entrada inválida. Rango permitido: [%.3f..%.3f]\n", minv, maxv);
+        printf("Entrada invalida. Rango permitido: [%.3f..%.3f]\n", minv, maxv);
     }
 }
 
@@ -229,7 +229,7 @@ static int read_yesno_prompt(const char* prompt) {
         read_line(line, sizeof(line));
         if (line[0] == '1') return 1;
         if (line[0] == '0') return 0;
-        printf("Entrada inválida. Escribe 1 o 0.\n");
+        printf("Entrada invalida. Escribe 1 o 0.\n");
     }
 }
 
@@ -263,7 +263,7 @@ static int run_experiment(uint8_t* Ain, int N, double p, unsigned seed, int repe
 
     if (verify) {
         if (N > 128) {
-            printf("Aviso: verificación activada con N=%d; se recomienda N<=128.\n", N);
+            printf("Aviso: verificacion activada con N=%d; se recomienda N<=128.\n", N);
         }
 
         memcpy(A, Ain, (size_t)N * (size_t)N);
@@ -280,12 +280,12 @@ static int run_experiment(uint8_t* Ain, int N, double p, unsigned seed, int repe
 
         if (print) {
             print_matrix(Ain,  N, "MATRIZ DE ENTRADA (Grafo / Adyacencia)");
-            print_matrix(Rref, N, "MATRIZ DE VERIFICACIÓN (Referencia BFS)");
-            print_matrix(A,    N, "MATRIZ DE SALIDA (Warshall lógico) [OPENMP]");
+            print_matrix(Rref, N, "MATRIZ DE VERIFICACIoN (Referencia BFS)");
+            print_matrix(A,    N, "MATRIZ DE SALIDA (Warshall logico) [OPENMP]");
         }
 
-        printf("\nVALIDACIÓN (BFS) para N=%d: %s\n", N, ok ? "OK" : "FALLIDA");
-        printf("Tiempo del núcleo (warshall_logical_omp): %.6f s\n", kernel_time);
+        printf("\nVALIDACIoN (BFS) para N=%d: %s\n", N, ok ? "OK" : "FALLIDA");
+        printf("Tiempo del nucleo (warshall_logical_omp): %.6f s\n", kernel_time);
         printf("Resumen params | N=%d | p=%.3f | seed=%u | repeats=%d | verify=%d | print=%d\n",
                N, p, seed, repeats, verify, print);
 
@@ -304,7 +304,7 @@ static int run_experiment(uint8_t* Ain, int N, double p, unsigned seed, int repe
         if (dt < best) best = dt;
     }
 
-    printf("OPENMP Warshall lógico | N=%d | p=%.3f | seed=%u | repeats=%d | best_kernel_time=%.6f s | threads=%d\n",
+    printf("OPENMP Warshall logico | N=%d | p=%.3f | seed=%u | repeats=%d | best_kernel_time=%.6f s | threads=%d\n",
            N, p, seed, repeats, best, omp_get_max_threads());
 
     free(A);
@@ -312,19 +312,19 @@ static int run_experiment(uint8_t* Ain, int N, double p, unsigned seed, int repe
 }
 
 // =====================================================
-// Menú
+// Menu
 // =====================================================
 static void menu_loop(void) {
     for (;;) {
         printf("\n==============================\n");
-        printf("   MENÚ - Warshall lógico OPENMP\n");
+        printf("   MENu - Warshall logico OPENMP\n");
         printf("==============================\n");
-        printf("1) Ingresar MATRIZ manual + parámetros\n");
-        printf("2) Ingresar parámetros + GRAFO random\n");
-        printf("3) Grafo y parámetros RANDOM\n");
+        printf("1) Ingresar MATRIZ manual + parametros\n");
+        printf("2) Ingresar parametros + GRAFO random\n");
+        printf("3) Grafo y parametros RANDOM\n");
         printf("0) Salir\n");
 
-        int opt = read_int_prompt("Opción: ", 0, 3);
+        int opt = read_int_prompt("Opcion: ", 0, 3);
         if (opt == 0) break;
 
         int N = 256;
@@ -349,7 +349,7 @@ static void menu_loop(void) {
                     printf("Fila %d: ", i);
                     read_line(line, sizeof(line));
                     if (parse_row_01(line, &Ain[i * N], N)) break;
-                    printf("Fila inválida. Debe contener %d valores 0/1.\n", N);
+                    printf("Fila invalida. Debe contener %d valores 0/1.\n", N);
                 }
             }
 
@@ -391,7 +391,7 @@ static void menu_loop(void) {
             Ain = alloc_matrix(N);
             init_random(Ain, N, p, seed);
 
-            printf("\nParámetros random generados:\n");
+            printf("\nParametros random generados:\n");
             printf("N=%d | p=%.3f | seed=%u | repeats=%d | verify=%d | print=%d\n",
                    N, p, seed, repeats, verify, print);
         }
@@ -400,10 +400,10 @@ static void menu_loop(void) {
         free(Ain);
 
         if (rc != EXIT_SUCCESS) {
-            printf("Ejecución terminó con error (validación fallida o problema).\n");
+            printf("Ejecucion termino con error (validacion fallida o problema).\n");
         }
 
-        if (!read_yesno_prompt("\n¿Deseas ejecutar otra vez?")) break;
+        if (!read_yesno_prompt("\nDeseas ejecutar otra vez")) break;
     }
 }
 
@@ -439,7 +439,7 @@ int main(int argc, char** argv) {
         return rc;
     }
 
-    // --- Modo menú ---
+    // --- Modo menu ---
     menu_loop();
     return 0;
 }
