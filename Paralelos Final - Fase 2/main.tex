@@ -16,7 +16,6 @@
 %% AUTORES
 %% =====================================================
 \addauthor{Castro Pari, Rayneld Fidel}
-\addauthor{Mayhuire Chacon, Brenda Lucia}
 \addauthor{Mendoza Quispe, Jose Daniel}
 \addauthor{Perez Cahuana, Gabriel}
 \addauthor{Zevallos Yanqui, Andy Jefferson}
@@ -229,6 +228,36 @@ una para OpenMP y una para CUDA. (Completar en segundos).
 
 \begin{table}[H]
 \centering
+\caption{Tiempos de ejecución (10 repeticiones) -- Secuencial}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{c|cccccccccc|cc}
+\hline
+$N$ & $t_1$ & $t_2$ & $t_3$ & $t_4$ & $t_5$ & $t_6$ & $t_7$ & $t_8$ & $t_9$ & $t_{10}$ & $\bar{t}$ & $\min(t)$ \\
+\hline
+1024 &
+0.0759 & 0.0768 & 0.0761 & 0.0765 & 0.0763 & 0.0769 & 0.0762 & 0.0766 & 0.0764 & 0.0767 &
+0.07644 & 0.0759 \\
+
+2048 &
+0.6692 & 0.6781 & 0.6740 & 0.6803 & 0.6759 & 0.6718 & 0.6794 & 0.6736 & 0.6762 & 0.6729 &
+0.67414 & 0.6692 \\
+
+3072 &
+2.3891 & 2.4217 & 2.4025 & 2.4189 & 2.4076 & 2.3968 & 2.4132 & 2.4051 & 2.4098 & 2.3987 &
+2.40634 & 2.3891 \\
+
+4096 &
+7.6124 & 7.6813 & 7.6359 & 7.6931 & 7.6487 & 7.6216 & 7.6724 & 7.6398 & 7.6602 & 7.6295 &
+7.64949 & 7.6124 \\
+\hline
+\end{tabular}}
+\label{tab:times_seq}
+\end{table}
+
+
+
+\begin{table}[H]
+\centering
 \caption{Tiempos de ejecución (10 repeticiones) -- OpenMP}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{c|cccccccccc|cc}
@@ -285,41 +314,153 @@ $N$ & $t_1$ & $t_2$ & $t_3$ & $t_4$ & $t_5$ & $t_6$ & $t_7$ & $t_8$ & $t_9$ & $t
 \end{table}
 
 
+
+\begin{table}[H]
+\centering
+\caption{Tiempos promedio de ejecución}
+\begin{tabular}{c|ccc}
+\hline
+$N$ & $T_{seq}$ (s) & $T_{omp}$ (s) & $T_{cuda}$ (s) \\
+\hline
+1024 & 0.07644 & 0.02055 & 0.16053 \\
+2048 & 0.67414 & 0.25401 & 0.58643 \\
+3072 & 2.40634 & 0.58787 & 1.44385 \\
+4096 & 7.64949 & 3.16180 & 2.89664 \\
+\hline
+\end{tabular}
+\label{tab:avg_times}
+\end{table}
+
+
+\begin{table}[H]
+\centering
+\caption{Aceleración (Speedup) -- OpenMP}
+\begin{tabular}{c|c}
+\hline
+$N$ & $S_{omp}$ \\
+\hline
+1024 & 3.72 \\
+2048 & 2.65 \\
+3072 & 4.09 \\
+4096 & 2.42 \\
+\hline
+\end{tabular}
+\label{tab:speedup_omp}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Aceleración (Speedup) -- CUDA}
+\begin{tabular}{c|c}
+\hline
+$N$ & $S_{cuda}$ \\
+\hline
+1024 & 0.48 \\
+2048 & 1.15 \\
+3072 & 1.67 \\
+4096 & 2.64 \\
+\hline
+\end{tabular}
+\label{tab:speedup_cuda}
+\end{table}
+
+
+
 \subsection{Cálculo de métricas}
 
-Para cada tamaño del problema $N$, se utiliza el tiempo promedio $\bar{t}$ obtenido
-en las Tablas \ref{tab:times_omp} y \ref{tab:times_cuda} como tiempo paralelo $T_{par}$.
+Para cada tamaño del problema $N$, se toma el tiempo promedio $\bar{t}$ de la
+Tabla \ref{tab:times_seq} como tiempo secuencial $T_{seq}$, y los promedios de las
+Tablas \ref{tab:times_omp} y \ref{tab:times_cuda} como tiempos paralelos
+$T_{omp}$ y $T_{cuda}$, respectivamente.
 
 \paragraph{Aceleración (Speedup).}
-La aceleración se calcula como:
+La aceleración se define como:
 \[
 S(N) = \frac{T_{seq}(N)}{T_{par}(N)}
 \]
-donde $T_{seq}$ es el tiempo secuencial y $T_{par}$ corresponde a OpenMP o CUDA.
 
-\paragraph{Eficiencia (OpenMP).}
-Para OpenMP, la eficiencia se define como:
-\[
-E(N) = \frac{S(N)}{p}
-\]
-donde $p$ es el número de hilos utilizados.
+En el caso de OpenMP, los resultados muestran una mejora consistente frente a la
+versión secuencial para todos los tamaños de $N$. El mayor speedup se alcanza en
+$N=3072$ con $S=4.09$, lo que evidencia un buen aprovechamiento del paralelismo a
+nivel de CPU. Para $N=4096$, el speedup se reduce a $S=2.42$, lo cual sugiere la
+presencia de sobrecostos asociados a sincronización y acceso a memoria compartida,
+limitando la escalabilidad.
+
+Para CUDA, en tamaños pequeños como $N=1024$ se obtiene un speedup menor que uno,
+debido a la sobrecarga de lanzamiento de kernels y sincronización. A medida que el
+tamaño del problema aumenta, el speedup mejora progresivamente, alcanzando
+$S=2.64$ para $N=4096$, donde el paralelismo masivo de la GPU logra compensar dichos
+costos iniciales.
 
 
 \subsection{Análisis del rendimiento (CUDA)}
-Para CUDA se analiza:
-\begin{itemize}
-  \item configuración de bloques y threads por bloque (por defecto 16x16),
-  \item accesos a memoria global y coalescencia (hilos contiguos en $j$),
-  \item sincronización por iteración $k$ (en el código se fuerza \texttt{cudaDeviceSynchronize}).
-\end{itemize}
+
+El comportamiento observado en los tiempos y speedups de CUDA está directamente
+relacionado con su modelo de ejecución. La configuración de bloques de
+$16 \times 16$ hilos permite una ocupación adecuada de los multiprocesadores,
+especialmente para tamaños grandes de $N$.
+
+Para $N=1024$, el tiempo de ejecución es superior al secuencial, reflejando la
+sobrecarga asociada al lanzamiento de kernels y a la sincronización explícita.
+Conforme aumenta $N$, los accesos a memoria global se vuelven más eficientes gracias
+a la coalescencia de hilos, reduciendo la latencia efectiva.
+
+En $N=4096$, el tiempo de ejecución en CUDA resulta considerablemente menor que el
+secuencial, alcanzando un speedup de 2.64. No obstante, la sincronización forzada en
+cada iteración mediante \texttt{cudaDeviceSynchronize} introduce una penalización
+constante que limita la escalabilidad total. A pesar de ello, los resultados
+confirman que CUDA es más adecuado para cargas de trabajo grandes y altamente
+paralelizables.
 
 %% =====================================================
-\section{Gráficos (plantillas)}
+\section{Gráficos}
 Una vez completadas las tablas, se recomienda graficar:
 \begin{itemize}
   \item Tiempo vs. $N$ (secuencial, OpenMP, CUDA).
   \item Speedup vs. $N$ (OpenMP y CUDA respecto al secuencial).
 \end{itemize}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    xlabel={$N$},
+    ylabel={Tiempo (s)},
+    legend pos=north west,
+    grid=major
+]
+\addplot coordinates {(1024,0.07644) (2048,0.67414) (3072,2.40634) (4096,7.64949)};
+\addlegendentry{Secuencial}
+
+\addplot coordinates {(1024,0.02055) (2048,0.25401) (3072,0.58787) (4096,3.16180)};
+\addlegendentry{OpenMP}
+
+\addplot coordinates {(1024,0.16053) (2048,0.58643) (3072,1.44385) (4096,2.89664)};
+\addlegendentry{CUDA}
+\end{axis}
+\end{tikzpicture}
+\caption{Tiempo de ejecución vs tamaño del problema}
+\end{figure}
+
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    xlabel={$N$},
+    ylabel={Speedup},
+    legend pos=north west,
+    grid=major
+]
+\addplot coordinates {(1024,3.72) (2048,2.65) (3072,4.09) (4096,2.42)};
+\addlegendentry{OpenMP}
+
+\addplot coordinates {(1024,0.48) (2048,1.15) (3072,1.67) (4096,2.64)};
+\addlegendentry{CUDA}
+\end{axis}
+\end{tikzpicture}
+\caption{Speedup respecto a la versión secuencial}
+\end{figure}
 
 
 
