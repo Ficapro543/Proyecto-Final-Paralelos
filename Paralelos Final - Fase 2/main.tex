@@ -1,0 +1,368 @@
+\documentclass[10pt,a4paper]{article}
+
+%% Carga del paquete de formato personalizado
+\usepackage{formato}
+
+%% =====================================================
+%% CONFIGURACIÓN DE LOS DATOS DEL DOCUMENTO
+%% =====================================================
+\documenttype{Proyecto Final -- Fase 2}
+\documenttitle{Paralelización de Algoritmos Matriciales Masivos con CUDA: Warshall Lógico (Cerradura Transitiva Booleana)}
+\subject{Algoritmos Paralelos y Distribuidos}
+\advisor{Mgt. Ray Dueñas Jiménez}
+\semester{2025-II}
+
+%% =====================================================
+%% AUTORES
+%% =====================================================
+\addauthor{Castro Pari, Rayneld Fidel}
+\addauthor{Mayhuire Chacon, Brenda Lucia}
+\addauthor{Mendoza Quispe, Jose Daniel}
+\addauthor{Perez Cahuana, Gabriel}
+\addauthor{Zevallos Yanqui, Andy Jefferson}
+
+%% =====================================================
+%% MACROS ÚTILES (no requieren archivos externos)
+%% =====================================================
+% Inclusión segura de imágenes: si no existe el archivo, muestra un recuadro.
+\newcommand{\maybeincludegraphics}[2][]{%
+  \IfFileExists{#2}{\includegraphics[#1]{#2}}{%
+    \fbox{\parbox[c][3.2cm][c]{0.92\linewidth}{\centering \textbf{Archivo no encontrado:}\\ \texttt{#2}}}%
+  }%
+}
+
+% Inclusión segura de listings: si no existe el archivo, muestra un recuadro.
+\newcommand{\maybeinputlisting}[2][]{%
+  \IfFileExists{#2}{\lstinputlisting[#1]{#2}}{%
+    \fbox{\parbox[c][3.2cm][c]{0.92\linewidth}{\centering \textbf{Archivo no encontrado:}\\ \texttt{#2}}}%
+  }%
+}
+
+% Notación para indexar matriz plana
+\newcommand{\idx}[3]{#1[#2\cdot N + #3]}
+
+%% =====================================================
+%% INICIO DEL DOCUMENTO
+%% =====================================================
+\begin{document}
+
+%% =====================================================
+%% PORTADA
+%% =====================================================
+\thispagestyle{empty}
+\makeatletter
+\input{portada.tex}
+\makeatother
+
+%% =====================================================
+%% PRELIMINARES
+%% =====================================================
+\startpreliminary
+\clearpage
+
+\tableofcontents
+\clearpage
+
+\listoffigures
+\clearpage
+\listoftables
+\clearpage
+
+%% =====================================================
+%% PRINCIPAL
+%% =====================================================
+\startmain
+
+%% =====================================================
+\begin{abstractenv}
+En la \textbf{Fase 2} del proyecto se implementan y evalúan versiones paralelas de la cerradura transitiva booleana
+(\textbf{Warshall lógico}) utilizando dos enfoques: \textbf{OpenMP} en CPU (memoria compartida) y \textbf{CUDA} en GPU
+(paralelismo masivo por hilos). El objetivo central es \textbf{comparar rendimiento} contra la versión secuencial de la Fase 1,
+midiendo tiempos de ejecución para matrices masivas (recomendado $N \ge 1024$), y calculando métricas de \textbf{aceleración (speedup)}
+y \textbf{eficiencia}.
+
+La implementación OpenMP paraleliza el bucle de filas ($i$) en cada iteración $k$ usando \texttt{\#pragma omp parallel for},
+mientras que la implementación CUDA mantiene $k$ secuencial y lanza, para cada $k$, un \textit{kernel} 2D que actualiza en paralelo
+todas las celdas $(i,j)$ de la matriz. Se incluye validación opcional mediante una referencia BFS para tamaños pequeños,
+y un diseño de experimentación reproducible (control de $N$, densidad $p$, semilla y repeticiones).
+
+Finalmente, se incorporan plantillas de tablas para registrar \textbf{10 ejecuciones} por tamaño en OpenMP y CUDA, junto con una sección de
+discusión que explica por qué CUDA suele superar a OpenMP (paralelismo, ancho de banda, ocultamiento de latencia y jerarquía de memoria).
+\keywords{OpenMP, CUDA, GPU, CPU, rendimiento, speedup, eficiencia, matrices masivas, Warshall lógico}
+\end{abstractenv}
+\clearpage
+
+%% =====================================================
+\section{Introducción}
+La evaluación de rendimiento es un paso obligatorio cuando se paralelizan algoritmos sobre matrices masivas, debido a que el tiempo total
+depende tanto del \textbf{cómputo} como de los costos de \textbf{memoria} (caché en CPU, transferencias y jerarquía de memoria en GPU).
+En la Fase 1 se implementó la versión secuencial y se dejó listo el escenario de pruebas; en esta \textbf{Fase 2} el foco pasa a:
+\begin{itemize}
+  \item construir una versión paralela en \textbf{CPU con OpenMP},
+  \item construir una versión paralela en \textbf{GPU con CUDA},
+  \item medir tiempos para distintos tamaños $N$ y reportar \textbf{métricas comparativas}.
+\end{itemize}
+
+La entrega incluye la demostración de ejecución, tablas de tiempos (10 repeticiones), cálculo de aceleración y una discusión técnica de
+por qué CUDA suele ser más rápido que OpenMP para cargas matriciales intensivas.
+
+%% =====================================================
+\section{Objetivos}
+\subsection{Objetivo general}
+Implementar y evaluar el rendimiento de las versiones paralelas \textbf{OpenMP (CPU)} y \textbf{CUDA (GPU)} del núcleo de Warshall lógico,
+comparándolas contra la versión secuencial, mediante tiempos de ejecución y métricas de aceleración/eficiencia para matrices masivas.
+
+\subsection{Objetivos específicos}
+\begin{itemize}
+  \item Implementar la versión paralela en CPU usando \textbf{OpenMP}, definiendo el esquema de paralelización y su configuración de hilos.
+  \item Implementar la versión paralela en GPU usando \textbf{CUDA}, definiendo el mapeo de hilos/bloques y parámetros de ejecución.
+  \item Diseñar una metodología reproducible de medición: tamaños $N$, densidad $p$, semilla, 10 repeticiones y control de verificación.
+  \item Registrar tiempos de ejecución y calcular \textbf{speedup} frente al secuencial y \textbf{eficiencia} para OpenMP.
+  \item Analizar el rendimiento CUDA considerando bloques/hilos, acceso a memoria y coalescencia, y discutir diferencias con OpenMP.
+\end{itemize}
+
+%% =====================================================
+\section{Marco teórico (solo OpenMP y CUDA)}
+
+\subsection{OpenMP: paralelismo en memoria compartida}
+OpenMP es un estándar para paralelización en CPU basado en directivas, pensado para arquitecturas de \textbf{memoria compartida}.
+En este modelo, múltiples hilos acceden a los mismos arreglos en memoria principal y la performance depende de:
+\begin{itemize}
+  \item número de núcleos/hilos disponibles,
+  \item balance de carga (\texttt{schedule(static/dynamic)}),
+  \item eficiencia de caché (localidad espacial/temporal),
+  \item ancho de banda de memoria y posibles conflictos (p.\ ej., \textit{false sharing}).
+\end{itemize}
+
+Una estructura común en OpenMP es paralelizar un bucle independiente:
+\begin{center}
+\texttt{\#pragma omp parallel for schedule(static)}
+\end{center}
+donde cada hilo procesa un subconjunto de iteraciones sin condiciones de carrera si no escriben en las mismas posiciones.
+
+\subsection{CUDA: paralelismo masivo en GPU}
+CUDA es un modelo de programación para GPU en el que el cómputo se expresa como \textit{kernels} ejecutados por miles de hilos.
+Los hilos se organizan en:
+\begin{itemize}
+  \item \textbf{grid} (malla) de bloques,
+  \item \textbf{bloques} de hilos,
+  \item \textbf{hilos} que ejecutan el mismo kernel con distintos índices.
+\end{itemize}
+
+El rendimiento en CUDA está dominado por:
+\begin{itemize}
+  \item configuración de \textbf{threads por bloque} y \textbf{bloques totales},
+  \item \textbf{ocupación} (cuántos warps activos por SM),
+  \item \textbf{coalescencia} de accesos a memoria global,
+  \item uso de jerarquía de memoria: \textbf{global}, \textbf{shared}, \textbf{constant} y cachés.
+\end{itemize}
+
+Para cómputo matricial, se busca que hilos contiguos accedan a posiciones contiguas para maximizar throughput de memoria.
+
+%% =====================================================
+\section{Implementación paralela (Fase 2)}
+
+\subsection{Estrategia común y correctitud}
+En ambas versiones paralelas, la iteración $k$ se mantiene \textbf{secuencial} (dependencia entre iteraciones). La ganancia se obtiene
+paralelizando el trabajo dentro de cada $k$:
+\begin{itemize}
+  \item OpenMP: paralelismo por filas ($i$).
+  \item CUDA: paralelismo 2D por celdas ($i,j$).
+\end{itemize}
+
+Para correctitud, se incluye un modo de verificación opcional usando una referencia BFS (recomendado solo para tamaños pequeños).
+
+\subsection{Versión OpenMP (CPU)}
+La versión OpenMP paraleliza el bucle de filas $i$ para cada $k$:
+\begin{itemize}
+  \item Cada hilo escribe únicamente la fila $i$ que le corresponde (sin carreras).
+  \item Se aplica un atajo: si $A_{ik}=0$, no se procesa la fila $i$ en ese $k$.
+  \item Se usa \texttt{schedule(static)} para repartir filas de forma uniforme.
+\end{itemize}
+
+\paragraph{Compilación y ejecución (Linux).}
+\begin{itemize}
+  \item Compilar: \texttt{gcc -O3 -std=c11 -fopenmp warshall\_menu\_omp.c -o warshall\_omp}
+  \item Ejecutar: \texttt{./warshall\_omp 1024 0.05 1234 3 0 0}
+\end{itemize}
+
+\subsection{Versión CUDA (GPU)}
+La versión CUDA realiza:
+\begin{itemize}
+  \item Copia inicial Host$\rightarrow$Device de la matriz.
+  \item Para cada $k$, lanza un kernel 2D donde cada hilo actualiza una celda $(i,j)$.
+  \item Copia final Device$\rightarrow$Host.
+\end{itemize}
+
+\paragraph{Configuración por defecto.}
+\begin{itemize}
+  \item Bloque: \texttt{dim3 block(16,16)}.
+  \item Grid: \texttt{ceil(N/16) x ceil(N/16)}.
+\end{itemize}
+
+\paragraph{Compilación y ejecución (Linux).}
+\begin{itemize}
+  \item Compilar: \texttt{nvcc -O3 -std=c++17 warshall\_menu\_cuda.cu -o warshall\_cuda}
+  \item Ejecutar: \texttt{./warshall\_cuda 1024 0.05 1234 3 0 0}
+\end{itemize}
+
+\subsection{Notas sobre medición de tiempo}
+En OpenMP el tiempo medido corresponde al núcleo (llamada a \texttt{warshall\_logical\_omp}).
+En CUDA, el tiempo medido (tal como está el código) incluye asignación, transferencias H2D/D2H y sincronizaciones por iteración.
+Esto se reporta explícitamente para que la comparación sea transparente.
+
+%% =====================================================
+\section{Evaluación y métricas}
+
+\subsection{Diseño experimental}
+Se recomienda fijar:
+\begin{itemize}
+  \item tamaños $N$: 1024, 2048, 3072, 4096,
+  \item densidad $p$: (ej.) 0.05 o la definida por el grupo,
+  \item semilla: (ej.) 1234,
+  \item repeticiones: 10 mediciones por cada $N$ (misma configuración).
+\end{itemize}
+
+\subsection{Tablas de tiempos (llenado manual)}
+A continuación se dejan \textbf{dos tablas en blanco} para registrar \textbf{10 tiempos} por tamaño $N$:
+una para OpenMP y una para CUDA. (Completar en segundos).
+
+\begin{table}[H]
+\centering
+\caption{Tiempos de ejecución (10 repeticiones) -- OpenMP}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{c|cccccccccc|cc}
+\hline
+$N$ & $t_1$ & $t_2$ & $t_3$ & $t_4$ & $t_5$ & $t_6$ & $t_7$ & $t_8$ & $t_9$ & $t_{10}$ & $\bar{t}$ & $\min(t)$ \\
+\hline
+1024 &  &  &  &  &  &  &  &  &  &  &  &  \\
+2048 &  &  &  &  &  &  &  &  &  &  &  &  \\
+3072 &  &  &  &  &  &  &  &  &  &  &  &  \\
+4096 &  &  &  &  &  &  &  &  &  &  &  &  \\
+\hline
+\end{tabular}}
+\label{tab:times_omp}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Tiempos de ejecución (10 repeticiones) -- CUDA}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{c|cccccccccc|cc}
+\hline
+$N$ & $t_1$ & $t_2$ & $t_3$ & $t_4$ & $t_5$ & $t_6$ & $t_7$ & $t_8$ & $t_9$ & $t_{10}$ & $\bar{t}$ & $\min(t)$ \\
+\hline
+1024 &  &  &  &  &  &  &  &  &  &  &  &  \\
+2048 &  &  &  &  &  &  &  &  &  &  &  &  \\
+3072 &  &  &  &  &  &  &  &  &  &  &  &  \\
+4096 &  &  &  &  &  &  &  &  &  &  &  &  \\
+\hline
+\end{tabular}}
+\label{tab:times_cuda}
+\end{table}
+
+\subsection{Métricas requeridas}
+Sea $T_{seq}$ el tiempo secuencial (de la Fase 1) y $T_{par}$ el tiempo paralelo (OpenMP o CUDA), para un mismo $N$.
+
+\paragraph{Aceleración (Speedup).}
+\[
+S = \frac{T_{seq}}{T_{par}}
+\]
+
+\paragraph{Eficiencia (Efficiency) para OpenMP.}
+\[
+E = \frac{S}{\#\text{núcleos (o hilos)}}
+\]
+
+\subsection{Análisis del rendimiento (CUDA)}
+Para CUDA se analiza:
+\begin{itemize}
+  \item configuración de bloques y threads por bloque (por defecto 16x16),
+  \item accesos a memoria global y coalescencia (hilos contiguos en $j$),
+  \item sincronización por iteración $k$ (en el código se fuerza \texttt{cudaDeviceSynchronize}).
+\end{itemize}
+
+%% =====================================================
+\section{Gráficos (plantillas)}
+Una vez completadas las tablas, se recomienda graficar:
+\begin{itemize}
+  \item Tiempo vs. $N$ (secuencial, OpenMP, CUDA).
+  \item Speedup vs. $N$ (OpenMP y CUDA respecto al secuencial).
+\end{itemize}
+
+
+
+%% =====================================================
+\section{Discusión: ¿por qué CUDA suele ser más rápido que OpenMP?}
+En general, CUDA tiende a superar a OpenMP en este tipo de cargas matriciales por varias razones:
+
+\subsection{Paralelismo disponible}
+OpenMP está limitado por el número de núcleos de CPU (decenas de hilos como máximo en un equipo típico),
+mientras que CUDA explota \textbf{miles de hilos} concurrentes. En Warshall lógico, cada iteración $k$ puede actualizar
+$N^2$ celdas, lo que se ajusta de forma natural al paralelismo masivo de GPU.
+
+\subsection{Ancho de banda y ocultamiento de latencia}
+Las GPU están diseñadas para alto throughput: cuando un grupo de hilos (warp) espera memoria, el SM puede ejecutar otros warps,
+ocultando latencias. En CPU, aunque existen cachés y vectorización, el rendimiento suele quedar limitado por el ancho de banda
+y la presión de memoria al recorrer matrices grandes.
+
+\subsection{Accesos a memoria y coalescencia}
+En CUDA, si los hilos contiguos acceden a posiciones contiguas (por ejemplo, celdas con $j$ consecutivo), las lecturas/escrituras
+pueden coalescerse, aprovechando transacciones eficientes en memoria global. En OpenMP, cada hilo recorre secuencialmente $j$ en su fila;
+aunque eso favorece localidad, el paralelismo global es menor y la ganancia se estanca al saturar caché/memoria.
+
+\subsection{Overhead y casos donde OpenMP compite}
+CUDA tiene overhead de lanzamiento de kernels y transferencias Host--Device (si se miden). Para tamaños moderados o si el cálculo
+no domina el costo total, OpenMP puede ser competitivo. Para $N$ grande (carga cúbica), el cómputo domina y CUDA suele despegar.
+
+\subsection{Oportunidades de mejora en CUDA (memoria compartida)}
+La versión actual usa principalmente memoria global. Una optimización típica es \textit{tiling} con \textbf{shared memory} para reutilizar
+segmentos de la fila $k$ (y mejorar el acceso repetido), además de evaluar diferentes configuraciones de bloque para mejorar ocupación.
+
+%% =====================================================
+\section{Conclusiones}
+\begin{itemize}
+  \item Se implementaron dos versiones paralelas del núcleo: OpenMP (CPU) y CUDA (GPU), manteniendo $k$ secuencial.
+  \item Se dejó un protocolo de medición reproducible con tablas para 10 ejecuciones por tamaño, base para speedup y eficiencia.
+  \item La discusión técnica muestra por qué CUDA suele lograr mayor aceleración en cargas matriciales masivas: más paralelismo y throughput.
+\end{itemize}
+
+\section{Trabajo futuro}
+\begin{itemize}
+  \item Medir el tiempo CUDA separando cómputo (kernel) de transferencias usando \texttt{cudaEvent}.
+  \item Probar variantes de bloque (p.\ ej., 8x8, 16x16, 32x8) y reportar su impacto.
+  \item Implementar \textit{tiling} con shared memory para reutilización de datos en cada $k$.
+\end{itemize}
+
+%% =====================================================
+\begin{thebibliography}{9}
+\bibitem{openmp}
+OpenMP Architecture Review Board,
+\textit{OpenMP Application Programming Interface (Specification)}.
+
+\bibitem{cuda_guide}
+NVIDIA,
+\textit{CUDA C++ Programming Guide}.
+
+\bibitem{cuda_best_practices}
+NVIDIA,
+\textit{CUDA C++ Best Practices Guide}.
+\end{thebibliography}
+
+%% =====================================================
+\appendix
+\section{Código OpenMP (warshall\_menu\_omp.c)}
+\maybeinputlisting[
+  language=C,
+  caption={\texttt{warshall\_menu\_omp.c} -- Warshall lógico con OpenMP + menú + medición},
+  label={lst:warshall_omp}
+]{warshall_menu_omp.c}
+
+\section{Código CUDA (warshall\_menu\_cuda.cu)}
+\maybeinputlisting[
+  language=C++,
+  caption={\texttt{warshall\_menu\_cuda.cu} -- Warshall lógico con CUDA + menú + medición},
+  label={lst:warshall_cuda}
+]{warshall_menu_cuda.cu}
+
+\end{document}
