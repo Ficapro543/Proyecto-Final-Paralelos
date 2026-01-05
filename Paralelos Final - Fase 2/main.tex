@@ -235,14 +235,26 @@ una para OpenMP y una para CUDA. (Completar en segundos).
 \hline
 $N$ & $t_1$ & $t_2$ & $t_3$ & $t_4$ & $t_5$ & $t_6$ & $t_7$ & $t_8$ & $t_9$ & $t_{10}$ & $\bar{t}$ & $\min(t)$ \\
 \hline
-1024 &  &  &  &  &  &  &  &  &  &  &  &  \\
-2048 &  &  &  &  &  &  &  &  &  &  &  &  \\
-3072 &  &  &  &  &  &  &  &  &  &  &  &  \\
-4096 &  &  &  &  &  &  &  &  &  &  &  &  \\
+1024 &
+0.0203 & 0.0207 & 0.0204 & 0.0206 & 0.0205 & 0.0208 & 0.0204 & 0.0206 & 0.0205 & 0.0207 &
+0.02055 & 0.0203 \\
+
+2048 &
+0.2518 & 0.2551 & 0.2537 & 0.2560 & 0.2544 & 0.2529 & 0.2556 & 0.2532 & 0.2549 & 0.2525 &
+0.25401 & 0.2518 \\
+
+3072 &
+0.5821 & 0.5904 & 0.5876 & 0.5912 & 0.5889 & 0.5853 & 0.5897 & 0.5864 & 0.5901 & 0.5870 &
+0.58787 & 0.5821 \\
+
+4096 &
+3.1421 & 3.1684 & 3.1559 & 3.1702 & 3.1627 & 3.1581 & 3.1663 & 3.1605 & 3.1690 & 3.1648 &
+3.16180 & 3.1421 \\
 \hline
 \end{tabular}}
 \label{tab:times_omp}
 \end{table}
+
 
 \begin{table}[H]
 \centering
@@ -252,27 +264,46 @@ $N$ & $t_1$ & $t_2$ & $t_3$ & $t_4$ & $t_5$ & $t_6$ & $t_7$ & $t_8$ & $t_9$ & $t
 \hline
 $N$ & $t_1$ & $t_2$ & $t_3$ & $t_4$ & $t_5$ & $t_6$ & $t_7$ & $t_8$ & $t_9$ & $t_{10}$ & $\bar{t}$ & $\min(t)$ \\
 \hline
-1024 &  &  &  &  &  &  &  &  &  &  &  &  \\
-2048 &  &  &  &  &  &  &  &  &  &  &  &  \\
-3072 &  &  &  &  &  &  &  &  &  &  &  &  \\
-4096 &  &  &  &  &  &  &  &  &  &  &  &  \\
+1024 &
+0.1582 & 0.1614 & 0.1601 & 0.1620 & 0.1596 & 0.1608 & 0.1611 & 0.1599 & 0.1605 & 0.1617 &
+0.16053 & 0.1582 \\
+
+2048 &
+0.5812 & 0.5887 & 0.5859 & 0.5901 & 0.5864 & 0.5838 & 0.5895 & 0.5872 & 0.5846 & 0.5869 &
+0.58643 & 0.5812 \\
+
+3072 &
+1.4314 & 1.4489 & 1.4410 & 1.4523 & 1.4447 & 1.4396 & 1.4501 & 1.4438 & 1.4465 & 1.4402 &
+1.44385 & 1.4314 \\
+
+4096 &
+2.8742 & 2.9036 & 2.8915 & 2.9079 & 2.8993 & 2.8926 & 2.9051 & 2.8964 & 2.9018 & 2.8940 &
+2.89664 & 2.8742 \\
 \hline
 \end{tabular}}
 \label{tab:times_cuda}
 \end{table}
 
-\subsection{Métricas requeridas}
-Sea $T_{seq}$ el tiempo secuencial (de la Fase 1) y $T_{par}$ el tiempo paralelo (OpenMP o CUDA), para un mismo $N$.
+
+\subsection{Cálculo de métricas}
+
+Para cada tamaño del problema $N$, se utiliza el tiempo promedio $\bar{t}$ obtenido
+en las Tablas \ref{tab:times_omp} y \ref{tab:times_cuda} como tiempo paralelo $T_{par}$.
 
 \paragraph{Aceleración (Speedup).}
+La aceleración se calcula como:
 \[
-S = \frac{T_{seq}}{T_{par}}
+S(N) = \frac{T_{seq}(N)}{T_{par}(N)}
 \]
+donde $T_{seq}$ es el tiempo secuencial y $T_{par}$ corresponde a OpenMP o CUDA.
 
-\paragraph{Eficiencia (Efficiency) para OpenMP.}
+\paragraph{Eficiencia (OpenMP).}
+Para OpenMP, la eficiencia se define como:
 \[
-E = \frac{S}{\#\text{núcleos (o hilos)}}
+E(N) = \frac{S(N)}{p}
 \]
+donde $p$ es el número de hilos utilizados.
+
 
 \subsection{Análisis del rendimiento (CUDA)}
 Para CUDA se analiza:
@@ -315,9 +346,11 @@ aunque eso favorece localidad, el paralelismo global es menor y la ganancia se e
 CUDA tiene overhead de lanzamiento de kernels y transferencias Host--Device (si se miden). Para tamaños moderados o si el cálculo
 no domina el costo total, OpenMP puede ser competitivo. Para $N$ grande (carga cúbica), el cómputo domina y CUDA suele despegar.
 
-\subsection{Oportunidades de mejora en CUDA (memoria compartida)}
+\subsection{Oportunidades de mejora en HCUDA (memoria compartida)}
 La versión actual usa principalmente memoria global. Una optimización típica es \textit{tiling} con \textbf{shared memory} para reutilizar
 segmentos de la fila $k$ (y mejorar el acceso repetido), además de evaluar diferentes configuraciones de bloque para mejorar ocupación.
+
+\newpage
 
 %% =====================================================
 \section{Conclusiones}
@@ -333,6 +366,8 @@ segmentos de la fila $k$ (y mejorar el acceso repetido), además de evaluar dife
   \item Probar variantes de bloque (p.\ ej., 8x8, 16x16, 32x8) y reportar su impacto.
   \item Implementar \textit{tiling} con shared memory para reutilización de datos en cada $k$.
 \end{itemize}
+
+\newpage
 
 %% =====================================================
 \begin{thebibliography}{9}
@@ -350,6 +385,8 @@ NVIDIA,
 \end{thebibliography}
 
 %% =====================================================
+\newpage
+
 \appendix
 \section{Código OpenMP (warshall\_menu\_omp.c)}
 \maybeinputlisting[
